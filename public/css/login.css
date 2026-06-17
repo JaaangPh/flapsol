@@ -1,0 +1,153 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue:         #5865F2;
+  --github:       #24292e;
+  --google:       #fff;
+  --google-border:#dadce0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  overflow: hidden;
+  position: relative;
+  background: #1a1a2e;
+}
+
+/* ── Scrolling sky background ── */
+.bg-layer {
+  position: fixed; inset: 0;
+  background-repeat: repeat-x;
+  background-position: center bottom;
+  background-size: auto 100%;
+  animation: bgscroll 18s linear infinite;
+  z-index: 0;
+}
+.cloud-layer {
+  position: fixed; inset: 0;
+  background: url('../images/cloud.gif') repeat-x top center;
+  background-size: auto 120px;
+  animation: bgscroll 30s linear infinite;
+  opacity: 0.55;
+  z-index: 1;
+}
+@keyframes bgscroll {
+  from { background-position-x: 0; }
+  to   { background-position-x: -2000px; }
+}
+
+/* ── Decorative flying birds ── */
+.deco-bird {
+  position: fixed;
+  z-index: 2;
+  pointer-events: none;
+  animation: fly linear infinite;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.4));
+}
+.b1 { top: 15%; animation-duration: 12s; animation-delay: 0s;  width: 60px; }
+.b2 { top: 38%; animation-duration: 9s;  animation-delay: -4s; width: 75px; }
+.b3 { top: 60%; animation-duration: 14s; animation-delay: -7s; width: 55px; }
+@keyframes fly {
+  from { transform: translateX(-160px); }
+  to   { transform: translateX(110vw);  }
+}
+
+/* ── Login card ── */
+.login-card {
+  position: relative;
+  z-index: 10;
+  background: rgba(8, 8, 26, 0.90);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  padding: 48px 40px 36px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0,0,0,.65);
+  animation: cardIn .5s ease-out;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Logo area ── */
+.logo-wrap { margin-bottom: 34px; }
+.logo-bird {
+  width: 72px;
+  animation: hop .85s ease-in-out infinite alternate;
+  filter: drop-shadow(0 6px 14px rgba(255,200,0,.42));
+}
+@keyframes hop {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-10px); }
+}
+h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -.5px;
+  margin-top: 10px;
+  text-shadow: 0 2px 14px rgba(255,200,0,.32);
+}
+.tagline {
+  color: rgba(255,255,255,.5);
+  font-size: .88rem;
+  margin-top: 6px;
+}
+
+/* ── OAuth buttons ── */
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: 13px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform .15s, box-shadow .15s, filter .15s;
+  cursor: pointer;
+}
+.btn:hover  { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(0,0,0,.38); }
+.btn:active { transform: translateY(0);    filter: brightness(.9); }
+.btn-icon   { width: 22px; height: 22px; flex-shrink: 0; }
+
+.btn-google  { background: var(--google); color: #3c4043; border: 1px solid var(--google-border); }
+.btn-github  { background: var(--github); color: #fff;    border: 1px solid #444; }
+.btn-discord { background: var(--blue);   color: #fff; }
+
+/* ── Error message ── */
+.error-msg {
+  background: rgba(220,53,69,.18);
+  border: 1px solid #dc3545;
+  color: #ff8a94;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: .88rem;
+  margin-bottom: 18px;
+}
+
+/* ── Footer ── */
+.footer-note {
+  color: rgba(255,255,255,.28);
+  font-size: .76rem;
+}
+
+@media (max-width: 480px) {
+  .login-card { padding: 36px 22px 28px; margin: 16px; }
+  h1 { font-size: 1.9rem; }
+}
