@@ -86,6 +86,47 @@ const sndDie   = new Audio('sounds effect/die.mp3');
 sndPoint.volume = 0.5;
 sndDie.volume   = 0.7;
 
+// Mobile browsers block audio until a user gesture happens.
+// We create a shared AudioContext and resume it on first interaction.
+let audioCtx = null;
+
+function unlockAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    // Also "warm up" the Audio elements by loading + pausing them
+    // so iOS doesn't block play() calls later
+    [sndPoint, sndDie].forEach(snd => {
+      snd.load();
+      const p = snd.play();
+      if (p) p.then(() => snd.pause()).catch(() => {});
+    });
+  } catch {}
+}
+
+// Unlock on any user interaction — fires once
+['touchstart', 'touchend', 'pointerdown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio, { once: false, passive: true });
+});
+
+// Wrapper that resumes context before playing
+function playSound(snd) {
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        snd.currentTime = 0;
+        snd.play().catch(() => {});
+      });
+    } else {
+      snd.currentTime = 0;
+      snd.play().catch(() => {});
+    }
+  } catch {}
+}
+
 // ── Bird image helpers ────────────────────────────────────────────────────────
 function setBirdImages(id) {
   birdNormal.src = BIRDS[id].normal;
@@ -219,7 +260,7 @@ function startGame() {
 async function endGame() {
   gameState = 'dead';
   tapZone.classList.remove('active');
-  sndDie.play().catch(() => {});
+  playSound(sndDie);
   birdWrap.style.display = 'none';
   cancelAnimationFrame(animId);
 
@@ -305,8 +346,7 @@ function gameLoop() {
       p.scored = true;
       score++;
       scoreValEl.textContent = score;
-      sndPoint.currentTime = 0;
-      sndPoint.play().catch(() => {});
+      playSound(sndPoint);
       showScorePop();
     }
 
