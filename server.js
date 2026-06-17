@@ -1,14 +1,15 @@
 require('dotenv').config();
 
-const express  = require('express');
-const session  = require('express-session');
-const passport = require('passport');
-const path     = require('path');
-const helmet   = require('helmet');
-const cors     = require('cors');
+const express       = require('express');
+const cookieSession = require('cookie-session');
+const passport      = require('passport');
+const path          = require('path');
+const helmet        = require('helmet');
+const cors          = require('cors');
 
-const app  = express();
-const PORT = process.env.PORT || 3000;
+const app    = express();
+const PORT   = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
 
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet({
@@ -28,24 +29,30 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Session ───────────────────────────────────────────────────────────────────
-// secure: true when deployed (HTTPS), false for local dev
-const isProd = process.env.NODE_ENV === 'production';
+// Trust Vercel proxy for secure cookies
+if (isProd) app.set('trust proxy', 1);
 
-app.use(session({
-  secret:            process.env.SESSION_SECRET,
-  resave:            false,
-  saveUninitialized: false,
-  cookie: {
-    secure:   isProd,   // HTTPS only in production
-    httpOnly: true,
-    maxAge:   7 * 24 * 60 * 60 * 1000,
-    sameSite: isProd ? 'none' : 'lax', // 'none' needed for cross-site OAuth on Vercel
-  },
+// ── Cookie-based session (works on Vercel – no MemoryStore) ───────────────────
+app.use(cookieSession({
+  name:    'solclash.sess',
+  keys:    [process.env.SESSION_SECRET || 'fallback-dev-secret'],
+  maxAge:  7 * 24 * 60 * 60 * 1000, // 7 days
+  secure:  isProd,   // HTTPS only in production
+  sameSite: isProd ? 'none' : 'lax',
+  httpOnly: true,
 }));
 
-// Trust Vercel's proxy so secure cookies work
-if (isProd) app.set('trust proxy', 1);
+// Passport needs req.session.regenerate & req.session.save (not in cookie-session)
+// Shim them so passport@0.6+ works
+app.use((req, _res, next) => {
+  if (req.session && !req.session.regenerate) {
+    req.session.regenerate = (cb) => { cb(); };
+  }
+  if (req.session && !req.session.save) {
+    req.session.save = (cb) => { cb(); };
+  }
+  next();
+});
 
 // ── Passport ──────────────────────────────────────────────────────────────────
 app.use(passport.initialize());
@@ -74,7 +81,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use((_req, res) => res.redirect('/'));
 
-// ── Start (local dev only – Vercel ignores this) ──────────────────────────────
+// ── Start (local only – Vercel ignores app.listen) ────────────────────────────
 if (!isProd) {
   app.listen(PORT, () => {
     console.log(`\n✅  SolClash running → http://localhost:${PORT}\n`);

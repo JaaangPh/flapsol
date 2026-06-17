@@ -27,7 +27,9 @@ router.get('/discord/callback',
 router.get('/logout', (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
-    req.session.destroy(() => res.redirect('/'));
+    // cookie-session: clear by setting to null
+    req.session = null;
+    res.redirect('/');
   });
 });
 
