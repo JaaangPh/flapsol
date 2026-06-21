@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolClash – Admin Login</title>
+  <link rel="icon" href="/images/favicon.ico" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #9945ff;
+      --green:  #14f195;
+      --bg:     #060614;
+      --card:   rgba(255,255,255,.04);
+      --border: rgba(153,69,255,.25);
+      --muted:  rgba(255,255,255,.4);
+      --error:  #ff6b6b;
+    }
+
+    body {
+      min-height: 100dvh;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(153,69,255,.18) 0%, transparent 70%);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px 36px 36px;
+      width: 100%;
+      max-width: 400px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .logo-row img { width: 36px; height: 36px; object-fit: contain; }
+    .logo-row span {
+      font-size: 1.4rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--purple), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .admin-badge {
+      text-align: center;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 32px;
+    }
+
+    label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 7px;
+    }
+
+    .field { margin-bottom: 18px; }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(153,69,255,.3);
+      border-radius: 12px;
+      color: #fff;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      -webkit-text-security: none;
+    }
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(153,69,255,.15);
+    }
+
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 44px; }
+    .pw-toggle {
+      position: absolute;
+      right: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+      line-height: 1;
+      transition: color .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pw-toggle:hover { color: #fff; }
+    .pw-toggle svg { width: 18px; height: 18px; display: block; }
+
+    .error-msg {
+      background: rgba(255,107,107,.1);
+      border: 1px solid rgba(255,107,107,.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: .82rem;
+      color: var(--error);
+      margin-bottom: 18px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--purple), var(--green));
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: filter .15s, transform .1s;
+      box-shadow: 0 6px 20px rgba(153,69,255,.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-login:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-login:active  { transform: translateY(0); }
+    .btn-login:disabled { opacity: .55; cursor: not-allowed; filter: none; transform: none; }
+    .btn-login .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin: 0 auto;
+    }
+    .btn-login.loading .btn-text { display: none; }
+    .btn-login.loading .spinner  { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      text-align: center;
+      margin-top: 22px;
+      font-size: .72rem;
+      color: rgba(255,255,255,.18);
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo-row">
+    <img src="/images/logo.png" alt="SolClash" />
+    <span>SolClash</span>
+  </div>
+  <div class="admin-badge">Admin Panel</div>
+
+  <div class="error-msg" id="errorMsg">Invalid credentials. Please try again.</div>
+
+  <form id="loginForm" autocomplete="off" novalidate>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="Email address" autocomplete="username" required />
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <div class="pw-wrap">
+        <input type="password" id="password" name="password" placeholder="••••••••••" autocomplete="current-password" required />
+        <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">
+          <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg id="eyeOffIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-login" id="submitBtn">
+      <span class="btn-text">Sign In</span>
+      <span class="spinner"></span>
+    </button>
+  </form>
+
+  <div class="footer">SolClash © 2026 · Admin Access Only</div>
+</div>
+
+<script>
+  // Password visibility toggle
+  const pwInput   = document.getElementById('password');
+  const pwToggle  = document.getElementById('pwToggle');
+  const eyeIcon   = document.getElementById('eyeIcon');
+  const eyeOffIcon = document.getElementById('eyeOffIcon');
+
+  pwToggle.addEventListener('click', () => {
+    const show = pwInput.type === 'password';
+    pwInput.type = show ? 'text' : 'password';
+    eyeIcon.style.display    = show ? 'none'  : 'block';
+    eyeOffIcon.style.display = show ? 'block' : 'none';
+  });
+
+  // Form submit
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('submitBtn');
+    const errEl    = document.getElementById('errorMsg');
+
+    errEl.classList.remove('show');
+
+    if (!email || !password) {
+      errEl.textContent = 'Please enter your email and password.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      const res  = await fetch('/admin/auth/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        window.location.href = '/admin/dashboard';
+      } else {
+        errEl.textContent = data.error || 'Invalid credentials.';
+        errEl.classList.add('show');
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.add('show');
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SolClash – Play</title>
+  <title>SolClash – Free Play</title>
   <link rel="icon" href="images/birds/Bird.png" />
   <link rel="stylesheet" href="css/game.css" />
 </head>
 <body>
 
-  <!-- ── Scrolling background (randomised in JS) ── -->
   <div class="game-bg" id="gameBg"></div>
   <div class="cloud-anim"></div>
 
-  <!-- ── HUD (top-centre) ── -->
   <div class="hud">
     <div class="hud-score">
       <span class="hud-label">Score</span>
@@ -25,33 +23,27 @@
     </div>
   </div>
 
-  <!-- ── Top-right: user panel + fullscreen toggle ── -->
   <div class="user-panel" id="userPanel">
     <img class="user-avatar" id="userAvatar" src="images/birds/Bird.png" alt="avatar" />
-    <span class="user-name" id="userName">Loading…</span>
+    <span class="user-name" id="userName">…</span>
     <button class="fs-btn" id="fsBtn" title="Toggle fullscreen">⛶</button>
-    <a href="/auth/logout" class="logout-btn">Logout</a>
   </div>
 
-  <!-- ── Full-screen tap zone (behind HUD/overlays, above background) ── -->
   <div id="tapZone"></div>
 
-  <!-- ── Bird sprite (two pre-loaded images toggled by JS) ── -->
   <div class="bird" id="birdWrap">
     <img id="birdNormal" src="" alt="bird" style="display:block;width:100%;height:100%;object-fit:contain;" />
-    <img id="birdFlap"   src="" alt="bird" style="display:none; width:100%;height:100%;object-fit:contain;" />
+    <img id="birdFlap"   src="" alt="bird" style="display:none;width:100%;height:100%;object-fit:contain;" />
   </div>
 
-  <!-- ── Start screen overlay ── -->
+  <!-- Start screen — no leaderboard button -->
   <div class="overlay" id="startScreen">
     <div class="overlay-card">
-
-      <!-- Animated bird preview -->
       <img class="ov-bird-img" id="previewBird" src="images/birds/bird-1/Bird.png" alt="bird preview" />
-      <h2>Ready to Flap?</h2>
+      <h2>Free Play</h2>
+      <p style="color:#aaa;font-size:13px;margin:-8px 0 12px">Just for fun — no data saved</p>
       <p class="ov-hint">Press <kbd>Space</kbd> / <kbd>↑</kbd> or tap to flap</p>
 
-      <!-- Bird chooser -->
       <div class="bird-selector">
         <p class="sel-label">Choose your bird</p>
         <div class="bird-options" id="birdOptions">
@@ -71,40 +63,21 @@
       </div>
 
       <button class="play-btn" id="playBtn">▶ Start Game</button>
-      <button class="lb-btn" id="lbToggleBtn">🏆 Leaderboard</button>
+      <a href="/dashboard" class="dash-btn">⌂ Dashboard</a>
     </div>
   </div>
 
-  <!-- ── Game-Over overlay ── -->
+  <!-- Game Over — redirect to dashboard -->
   <div class="overlay" id="gameOverScreen" style="display:none">
     <div class="overlay-card">
       <h2 class="go-title">💀 Game Over</h2>
       <p class="go-score">Score: <strong id="finalScore">0</strong></p>
       <p class="go-best">Best&nbsp;&nbsp;: <strong id="finalBest">0</strong></p>
       <button class="play-btn" id="restartBtn">↩ Try Again</button>
-      <button class="lb-btn" id="lbToggleBtn2">🏆 Leaderboard</button>
+      <a href="/dashboard" class="dash-btn">⌂ Dashboard</a>
     </div>
   </div>
 
-  <!-- ── Leaderboard modal ── -->
-  <div class="modal-bg" id="lbModal" style="display:none">
-    <div class="modal">
-      <h3>🏆 Top 10 Players</h3>
-      <table class="lb-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Player</th>
-            <th>Best Score</th>
-            <th>Rank</th>
-          </tr>
-        </thead>
-        <tbody id="lbBody"></tbody>
-      </table>
-      <button class="close-btn" id="closeLb">✕ Close</button>
-    </div>
-  </div>
-
-  <script src="js/game.js"></script>
+  <script src="js/freetoplay.js"></script>
 </body>
 </html>

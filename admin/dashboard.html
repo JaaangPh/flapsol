@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolClash – Admin Dashboard</title>
+  <link rel="icon" href="/images/favicon.ico" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #9945ff;
+      --green:  #14f195;
+      --bg:     #060614;
+      --card:   rgba(255,255,255,.04);
+      --card2:  rgba(255,255,255,.06);
+      --border: rgba(153,69,255,.22);
+      --muted:  rgba(255,255,255,.4);
+      --error:  #ff6b6b;
+      --success:#14f195;
+    }
+
+    body {
+      min-height: 100dvh;
+      background: var(--bg);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      background-image:
+        radial-gradient(ellipse 80% 40% at 50% -10%, rgba(153,69,255,.14) 0%, transparent 65%);
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0; z-index: 100;
+      background: rgba(6,6,20,.85);
+    }
+    .header-logo {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .header-logo img { width: 30px; height: 30px; object-fit: contain; }
+    .header-logo .brand {
+      font-size: 1.1rem; font-weight: 900;
+      background: linear-gradient(135deg, var(--purple), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-logo .badge {
+      font-size: .65rem; font-weight: 800;
+      color: rgba(255,255,255,.35);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-left: 4px;
+    }
+
+    .btn-logout {
+      padding: 8px 18px;
+      background: rgba(255,107,107,.1);
+      border: 1px solid rgba(255,107,107,.3);
+      border-radius: 10px;
+      color: #ff8a8a;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-logout:hover {
+      background: rgba(255,107,107,.2);
+      border-color: rgba(255,107,107,.5);
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    .page-title {
+      font-size: 1.35rem;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .page-sub {
+      font-size: .83rem;
+      color: var(--muted);
+      margin-bottom: 30px;
+    }
+
+    /* ── Section card ── */
+    .section-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px 22px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 20px;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .section-title .icon { font-size: 1.2rem; }
+    .section-desc {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+
+    /* ── Price editor grid ── */
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .price-item {
+      background: var(--card2);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      transition: border-color .2s;
+    }
+    .price-item.common    { border-color: rgba(136,136,136,.35); }
+    .price-item.rare      { border-color: rgba(58,155,220,.35); }
+    .price-item.legendary { border-color: rgba(200,146,42,.35); }
+
+    .price-item-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .price-item-header img {
+      width: 36px; height: 36px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .price-item-meta {}
+    .price-rarity {
+      font-size: .62rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 1px;
+    }
+    .price-item.common   .price-rarity { color: #aaa; }
+    .price-item.rare     .price-rarity { color: #5bb8f5; }
+    .price-item.legendary .price-rarity { color: #f0b840; }
+
+    .price-name {
+      font-size: .82rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .price-input-wrap {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .price-input-wrap .sol-label {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--green);
+      white-space: nowrap;
+    }
+    .price-input-wrap input[type="number"] {
+      flex: 1;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(153,69,255,.3);
+      border-radius: 9px;
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 700;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      width: 100%;
+      -moz-appearance: textfield;
+    }
+    .price-input-wrap input[type="number"]::-webkit-outer-spin-button,
+    .price-input-wrap input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .price-input-wrap input[type="number"]:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(153,69,255,.15);
+    }
+
+    /* ── Save button ── */
+    .btn-save {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--purple), var(--green));
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: filter .15s, transform .1s;
+      box-shadow: 0 6px 20px rgba(153,69,255,.3);
+    }
+    .btn-save:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-save:active  { transform: translateY(0); }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; filter: none; transform: none; }
+    .btn-save .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    .btn-save.loading .btn-label { display: none; }
+    .btn-save.loading .spinner   { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(20,241,149,.12);
+      border: 1px solid rgba(20,241,149,.35);
+      border-radius: 12px;
+      padding: 12px 22px;
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--green);
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      z-index: 999;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.error {
+      background: rgba(255,107,107,.1);
+      border-color: rgba(255,107,107,.3);
+      color: var(--error);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Live preview strip ── */
+    .live-preview {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .preview-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,.04);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: .78rem;
+    }
+    .preview-chip .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .preview-chip.common    .dot { background: #888; }
+    .preview-chip.rare      .dot { background: #5bb8f5; }
+    .preview-chip.legendary .dot { background: #f0b840; }
+    .preview-chip .lbl { color: var(--muted); }
+    .preview-chip .val { font-weight: 700; color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-logo">
+    <img src="/images/logo.png" alt="SolClash" />
+    <span class="brand">SolClash</span>
+    <span class="badge">Admin</span>
+  </div>
+  <button class="btn-logout" id="logoutBtn">Sign Out</button>
+</header>
+
+<!-- ── Main ── -->
+<main>
+  <h1 class="page-title">Admin Dashboard</h1>
+  <p class="page-sub">Manage marketplace settings and SOL pricing for in-game items.</p>
+
+  <!-- Nest Prices Section -->
+  <div class="section-card">
+    <div class="section-title">
+      <span class="icon"><img src="/images/nest-icon.png" alt="Nest" style="width:20px;height:20px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;" /></span>
+      Nest SOL Prices
+    </div>
+    <p class="section-desc">
+      Update the SOL price for each nest rarity tier in the Marketplace.
+      Changes take effect immediately for all players.
+    </p>
+
+    <div class="price-grid">
+      <!-- Common -->
+      <div class="price-item common">
+        <div class="price-item-header">
+          <img src="/images/nest/common.png" alt="Ice Nest" />
+          <div class="price-item-meta">
+            <div class="price-rarity">Common</div>
+            <div class="price-name">Ice Nest</div>
+          </div>
+        </div>
+        <div class="price-input-wrap">
+          <span class="sol-label">SOL</span>
+          <input type="number" id="priceCommon" min="0.001" step="0.001" placeholder="0.35" value="0.35" />
+        </div>
+      </div>
+
+      <!-- Rare -->
+      <div class="price-item rare">
+        <div class="price-item-header">
+          <img src="/images/nest/rare.png" alt="Volcano Nest" />
+          <div class="price-item-meta">
+            <div class="price-rarity">Rare</div>
+            <div class="price-name">Volcano Nest</div>
+          </div>
+        </div>
+        <div class="price-input-wrap">
+          <span class="sol-label">SOL</span>
+          <input type="number" id="priceRare" min="0.001" step="0.001" placeholder="0.75" value="0.75" />
+        </div>
+      </div>
+
+      <!-- Legendary -->
+      <div class="price-item legendary">
+        <div class="price-item-header">
+          <img src="/images/nest/legendary.png" alt="Cosmic Nest" />
+          <div class="price-item-meta">
+            <div class="price-rarity">Legendary</div>
+            <div class="price-name">Cosmic Nest</div>
+          </div>
+        </div>
+        <div class="price-input-wrap">
+          <span class="sol-label">SOL</span>
+          <input type="number" id="priceLegendary" min="0.001" step="0.001" placeholder="1.2" value="1.2" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Live preview -->
+    <div class="live-preview" id="livePreview">
+      <div class="preview-chip common">
+        <div class="dot"></div>
+        <span class="lbl">Ice Nest</span>
+        <span class="val" id="previewCommon">0.35 SOL</span>
+      </div>
+      <div class="preview-chip rare">
+        <div class="dot"></div>
+        <span class="lbl">Volcano Nest</span>
+        <span class="val" id="previewRare">0.75 SOL</span>
+      </div>
+      <div class="preview-chip legendary">
+        <div class="dot"></div>
+        <span class="lbl">Cosmic Nest</span>
+        <span class="val" id="previewLegendary">1.2 SOL</span>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn-save" id="saveBtn">
+        <span class="btn-label">💾 Save Prices</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Toast helper ─────────────────────────────────────────────────────────────
+  let _toastTimer = null;
+  function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = 'toast ' + type;
+    requestAnimationFrame(() => { el.classList.add('show'); });
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3200);
+  }
+
+  // ── Live preview update ───────────────────────────────────────────────────────
+  function updatePreview() {
+    const c = parseFloat(document.getElementById('priceCommon').value)    || 0;
+    const r = parseFloat(document.getElementById('priceRare').value)      || 0;
+    const l = parseFloat(document.getElementById('priceLegendary').value) || 0;
+    document.getElementById('previewCommon').textContent    = c.toFixed(3).replace(/\.?0+$/, '') + ' SOL';
+    document.getElementById('previewRare').textContent      = r.toFixed(3).replace(/\.?0+$/, '') + ' SOL';
+    document.getElementById('previewLegendary').textContent = l.toFixed(3).replace(/\.?0+$/, '') + ' SOL';
+  }
+
+  ['priceCommon', 'priceRare', 'priceLegendary'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updatePreview);
+  });
+
+  // ── Load current prices on mount ─────────────────────────────────────────────
+  async function loadPrices() {
+    try {
+      const res  = await fetch('/admin/api/nest-prices');
+      if (res.status === 401 || res.status === 302) {
+        window.location.href = '/admin/login';
+        return;
+      }
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('priceCommon').value    = data.prices.common;
+        document.getElementById('priceRare').value      = data.prices.rare;
+        document.getElementById('priceLegendary').value = data.prices.legendary;
+        updatePreview();
+      }
+    } catch (err) {
+      showToast('Failed to load current prices.', 'error');
+    }
+  }
+  loadPrices();
+
+  // ── Save prices ───────────────────────────────────────────────────────────────
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveBtn');
+
+    const common    = parseFloat(document.getElementById('priceCommon').value);
+    const rare      = parseFloat(document.getElementById('priceRare').value);
+    const legendary = parseFloat(document.getElementById('priceLegendary').value);
+
+    // Client-side validation
+    for (const [name, val] of [['Common', common], ['Rare', rare], ['Legendary', legendary]]) {
+      if (!isFinite(val) || val <= 0) {
+        showToast(`${name} price must be a positive number.`, 'error');
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      const res  = await fetch('/admin/api/nest-prices', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ common, rare, legendary }),
+      });
+
+      if (res.status === 401) {
+        window.location.href = '/admin/login';
+        return;
+      }
+
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast('✅ Prices updated successfully!');
+        updatePreview();
+      } else {
+        showToast(data.error || 'Failed to save prices.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
+  // ── Logout ────────────────────────────────────────────────────────────────────
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try {
+      await fetch('/admin/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/admin/login';
+    }
+  });
+</script>
+
+</body>
+</html>

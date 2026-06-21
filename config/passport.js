@@ -1,18 +1,27 @@
-const GoogleStrategy  = require('passport-google-oauth20').Strategy;
-const GitHubStrategy  = require('passport-github2').Strategy;
-const DiscordStrategy = require('passport-discord').Strategy;
+const GoogleStrategy   = require('passport-google-oauth20').Strategy;
+const GitHubStrategy   = require('passport-github2').Strategy;
+const DiscordStrategy  = require('passport-discord').Strategy;
 const { getFirestore } = require('./firebase');
+const { generateWallet } = require('../utils/wallet');
 
-// ── Upsert user in Firestore ─────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function randomReferralCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// ── Upsert user ───────────────────────────────────────────────────────────────
 async function upsertUser(provider, profile) {
   const db         = getFirestore();
   const providerId = String(profile.id);
   const email      = profile.emails?.[0]?.value || null;
   const name       = profile.displayName || profile.username || profile.global_name || 'Player';
   const avatar     = profile.photos?.[0]?.value || null;
+  const now        = new Date().toISOString();
 
   const usersRef = db.collection('users');
-  const snap     = await usersRef
+
+  // ── Returning user ─────────────────────────────────────────────────────────
+  const snap = await usersRef
     .where(`oauthProviders.${provider}.id`, '==', providerId)
     .limit(1)
     .get();
@@ -20,41 +29,96 @@ async function upsertUser(provider, profile) {
   if (!snap.empty) {
     const doc = snap.docs[0];
     await doc.ref.update({
-      lastLoginTime: new Date().toISOString(),
-      [`oauthProviders.${provider}.lastSeen`]: new Date().toISOString(),
+      lastLoginTime: now,
+      [`oauthProviders.${provider}.lastSeen`]: now,
       [`oauthProviders.${provider}.avatar`]:   avatar,
+      [`oauthProviders.${provider}.name`]:     name,
     });
     return { uid: doc.id, ...doc.data() };
   }
 
-  // Brand-new user
+  // ── Brand-new user — create Solana wallet ──────────────────────────────────
+  const wallet = generateWallet();
+
   const newUser = {
-    authProvider:       provider,
+    // ── Identity ──────────────────────────────────────────────────────────────
+    authProvider:   provider,
     name,
     email,
     avatar,
     provider,
     providerId,
-    createdAt:          new Date().toISOString(),
-    lastLoginTime:      new Date().toISOString(),
-    clashBalance:       5,
-    walletBalance:      0,
-    totalBP:            0,
-    level:              0,
-    currentExp:         0,
-    requiredExp:        200,
-    rank:               'Bronze',
-    badge:              'images/badges/bronze.png',
-    selectedBird:       'bird-1',
-    highScore:          0,
-    totalAttemptsToday: 0,
+    createdAt:      now,
+    lastLoginTime:  now,
+    updatedAt:      now,
+
+    // ── Provider-specific IDs (mirrors existing db structure) ─────────────────
+    ...(provider === 'google'  && { googleId:  providerId }),
+    ...(provider === 'discord' && { discordId: providerId }),
+    ...(provider === 'github'  && { githubId:  providerId }),
+
+    // ── Economy ───────────────────────────────────────────────────────────────
+    goldBalance:    0,
+    walletBalance:  0,
+    totalBP:        0,
+    totalDeposited: 0,
+    totalSpent:     0,
+    seasonBattlePoints: 0,
+    seasonId:       null,
+
+    // ── Progression ───────────────────────────────────────────────────────────
+    level:          0,
+    currentExp:     0,
+    requiredExp:    200,
+    rank:           'Bronze',
+    badge:          'images/badges/bronze.png',
+    highScore:      0,
+
+    // ── Game stats ────────────────────────────────────────────────────────────
+    selectedBird:           'bird-1',
+    totalAttemptsToday:     0,
+    generalAttemptsToday:   0,
+    lastPlayedAt:           null,
+    lastResetDate:          new Date().toISOString().slice(0, 10),
+
+    // ── Referral ──────────────────────────────────────────────────────────────
+    referralCode:        randomReferralCode(),
+    referralCount:       0,
+    referralRewardClaimed: false,
+    referredBy:          null,
+    referredByCode:      null,
+
+    // ── Security ──────────────────────────────────────────────────────────────
+    securityPin:    null,
+    currentSessionId: null,
+
+    // ── Wallet (encrypted) ────────────────────────────────────────────────────
+    walletPublicKey:  wallet.walletPublicKey,
+    walletPrivateKey: wallet.walletPrivateKey,
+    walletTransactions: [],
+    processedDepositSignatures: [],
+    seedPhrase:     wallet.seedPhrase || null,
+
+    // ── Daily rewards structure ───────────────────────────────────────────────
+    dailyRewards: {
+      tracks: {
+        normal:     { currentDay: 0, lastClaimedAt: null, claimedDates: [] },
+        battlepass: { currentDay: 0, lastClaimedAt: null, claimedDates: [] },
+        picks:      { currentDay: 0, lastClaimedAt: null, claimedDates: [] },
+      },
+    },
+
+    // ── OAuth providers map ───────────────────────────────────────────────────
     oauthProviders: {
       [provider]: {
-        id:       providerId,
+        id:         providerId,
         email,
         name,
         avatar,
-        lastSeen: new Date().toISOString(),
+        provider,
+        providerId,
+        profileUrl: null,
+        lastSeen:   now,
       },
     },
   };
@@ -63,7 +127,7 @@ async function upsertUser(provider, profile) {
   return { uid: docRef.id, ...newUser };
 }
 
-// ── Passport config ──────────────────────────────────────────────────────────
+// ── Passport config ───────────────────────────────────────────────────────────
 module.exports = (passport) => {
 
   passport.serializeUser((user, done) => done(null, user.uid));

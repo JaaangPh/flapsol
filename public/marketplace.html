@@ -1,0 +1,1279 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SolClash – Marketplace</title>
+  <link rel="icon" href="images/favicon.ico" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <style>
+    /* ── Marketplace specific styles ── */
+    .mp-section { margin-bottom: 14px; }
+
+    /* Category tabs */
+    .mp-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .mp-tab {
+      flex: 1;
+      padding: 11px 10px;
+      background: rgba(153,69,255,.1);
+      border: 1px solid rgba(153,69,255,.25);
+      border-radius: 12px;
+      color: rgba(255,255,255,.6);
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, color .2s;
+      text-align: center;
+      position: relative;
+    }
+    .mp-tab:hover { background: rgba(153,69,255,.2); color: #fff; }
+    .mp-tab.active {
+      background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+      border-color: rgba(20,241,149,.4);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(153,69,255,.4);
+    }
+    .mp-tab .soon-badge {
+      display: inline-block;
+      margin-left: 6px;
+      background: rgba(255,200,50,.18);
+      border: 1px solid rgba(255,200,50,.4);
+      border-radius: 6px;
+      color: #ffd050;
+      font-size: .62rem;
+      font-weight: 800;
+      padding: 1px 5px;
+      vertical-align: middle;
+      letter-spacing: .5px;
+    }
+
+    /* Tab panels */
+    .mp-panel { display: none; }
+    .mp-panel.active { display: block; }
+
+    /* Auction coming soon card */
+    .auction-soon {
+      background: var(--card);
+      border: 1px dashed rgba(255,200,50,.3);
+      border-radius: 18px;
+      padding: 40px 24px;
+      text-align: center;
+      backdrop-filter: blur(14px);
+    }
+    .auction-soon .soon-icon { font-size: 3rem; margin-bottom: 14px; }
+    .auction-soon h3 { font-size: 1.1rem; font-weight: 800; color: #ffd050; margin-bottom: 8px; }
+    .auction-soon p { font-size: .83rem; color: rgba(255,255,255,.5); line-height: 1.5; max-width: 280px; margin: 0 auto; }
+
+    /* Nest grid */
+    .nest-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    /* Nest card */
+    .nest-card {
+      background: #0f0f22;
+      border-radius: 14px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      position: relative;
+    }
+    .nest-card:hover { transform: translateY(-3px); }
+    .nest-card:active { transform: translateY(0); }
+
+    /* Corner color border by rarity */
+    .nest-card.common {
+      border: 2px solid #888;
+      box-shadow: 0 0 12px rgba(136,136,136,.25);
+    }
+    .nest-card.common:hover { box-shadow: 0 6px 22px rgba(136,136,136,.4); border-color: #aaa; }
+
+    .nest-card.rare {
+      border: 2px solid #3a9bdc;
+      box-shadow: 0 0 12px rgba(58,155,220,.3);
+    }
+    .nest-card.rare:hover { box-shadow: 0 6px 22px rgba(58,155,220,.5); border-color: #5bb8f5; }
+
+    .nest-card.legendary {
+      border: 2px solid #c8922a;
+      box-shadow: 0 0 14px rgba(200,146,42,.3);
+    }
+    .nest-card.legendary:hover { box-shadow: 0 6px 26px rgba(255,180,50,.55); border-color: #f0b840; }
+    .nest-card.legendary { animation: legendaryPulse 2.5s ease-in-out infinite; }
+    @keyframes legendaryPulse {
+      0%,100% { box-shadow: 0 0 14px rgba(200,146,42,.3); }
+      50%      { box-shadow: 0 0 26px rgba(255,180,50,.6); }
+    }
+
+    /* Corner accent triangles */
+    .nest-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 22px 22px 0 0;
+      z-index: 3;
+    }
+    .nest-card.common::before  { border-color: #888 transparent transparent transparent; }
+    .nest-card.rare::before    { border-color: #3a9bdc transparent transparent transparent; }
+    .nest-card.legendary::before { border-color: #c8922a transparent transparent transparent; }
+
+    .nest-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 0 0 22px 22px;
+      z-index: 3;
+    }
+    .nest-card.common::after  { border-color: transparent transparent #888 transparent; }
+    .nest-card.rare::after    { border-color: transparent transparent #3a9bdc transparent; }
+    .nest-card.legendary::after { border-color: transparent transparent #c8922a transparent; }
+
+    /* Image area */
+    .nest-img-wrap {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #08081a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      overflow: hidden;
+    }
+    .nest-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      transition: transform .2s;
+    }
+    .nest-card:hover .nest-img-wrap img { transform: scale(1.08); }
+
+    /* Rarity label strip */
+    .nest-label {
+      padding: 7px 8px 8px;
+      text-align: center;
+    }
+    .nest-rarity {
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 2px;
+    }
+    .nest-card.common  .nest-rarity { color: #aaa; }
+    .nest-card.rare    .nest-rarity { color: #5bb8f5; }
+    .nest-card.legendary .nest-rarity { color: #f0b840; }
+
+    .nest-name {
+      font-size: .72rem;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nest-price {
+      font-size: .7rem;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+    .nest-card.common  .nest-price { color: #aaa; }
+    .nest-card.rare    .nest-price { color: #5bb8f5; }
+    .nest-card.legendary .nest-price { color: #f0b840; }
+
+    /* ── Purchase modal ── */
+    .purchase-modal-overlay {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,.82);
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .purchase-modal-overlay.open { display: flex; }
+    .purchase-modal {
+      background: #0b1023;
+      border-radius: 22px;
+      padding: 28px 24px 24px;
+      max-width: 340px; width: 94%;
+      animation: modalIn .22s ease-out;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .purchase-modal.common   { border: 2px solid #888; }
+    .purchase-modal.rare     { border: 2px solid #3a9bdc; }
+    .purchase-modal.legendary { border: 2px solid #c8922a; box-shadow: 0 0 30px rgba(255,180,50,.2); }
+
+    .pm-nest-img {
+      width: 120px; height: 120px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      margin: 0 auto 12px;
+      display: block;
+      filter: drop-shadow(0 4px 12px rgba(153,69,255,.35));
+    }
+    .pm-rarity {
+      font-size: .7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 4px;
+    }
+    .purchase-modal.common   .pm-rarity { color: #aaa; }
+    .purchase-modal.rare     .pm-rarity { color: #5bb8f5; }
+    .purchase-modal.legendary .pm-rarity { color: #f0b840; }
+
+    .pm-name {
+      font-size: 1.1rem; font-weight: 800; color: #fff;
+      margin-bottom: 6px;
+    }
+    .pm-desc {
+      font-size: .78rem; color: rgba(255,255,255,.5);
+      line-height: 1.5; margin-bottom: 16px;
+    }
+    .pm-price-box {
+      background: rgba(153,69,255,.08);
+      border: 1px solid rgba(153,69,255,.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pm-price-label { font-size: .72rem; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: .8px; }
+    .pm-price-val {
+      font-size: 1.15rem; font-weight: 900;
+    }
+    .purchase-modal.common   .pm-price-val { color: #aaa; }
+    .purchase-modal.rare     .pm-price-val { color: #5bb8f5; }
+    .purchase-modal.legendary .pm-price-val { color: #f0b840; }
+
+    .pm-wallet-info {
+      font-size: .72rem; color: rgba(255,255,255,.35);
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .pm-wallet-info span { color: var(--sol-green); font-weight: 700; }
+
+    .pm-actions { display: flex; gap: 10px; }
+    .pm-btn-cancel {
+      flex: 1; padding: 11px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px; color: rgba(255,255,255,.6);
+      font-size: .88rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .pm-btn-cancel:hover { background: rgba(255,255,255,.13); }
+    .pm-btn-buy {
+      flex: 2; padding: 11px;
+      background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+      border: none; border-radius: 12px; color: #fff;
+      font-size: .88rem; font-weight: 800; cursor: pointer;
+      transition: filter .15s, transform .1s;
+      box-shadow: 0 4px 16px rgba(153,69,255,.35);
+    }
+    .pm-btn-buy:hover   { filter: brightness(1.1); transform: translateY(-1px); }
+    .pm-btn-buy:active  { transform: translateY(0); }
+    .pm-btn-buy:disabled { opacity: .5; cursor: not-allowed; filter: none; transform: none; }
+
+    /* Processing state */
+    .pm-processing {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+    }
+    .pm-processing.visible { display: flex; }
+    .pm-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(153,69,255,.2);
+      border-top-color: var(--sol-green);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pm-processing-text { font-size: .8rem; color: rgba(255,255,255,.6); }
+
+    /* Success / fail states */
+    .pm-result { display: none; padding: 8px 0 4px; }
+    .pm-result.visible { display: block; }
+    .pm-result-icon { font-size: 2.4rem; margin-bottom: 8px; }
+    .pm-result-title { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .pm-result-msg { font-size: .78rem; color: rgba(255,255,255,.5); line-height: 1.4; word-break: break-all; }
+    .pm-result-msg a { color: var(--sol-green); }
+
+    /* ── Payment method toggle in modal ── */
+    .pm-pay-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      padding: 4px;
+    }
+    .pm-pay-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,.5);
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .18s, color .18s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .pm-pay-btn.active {
+      background: rgba(153,69,255,.3);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(153,69,255,.3);
+    }
+    .pm-pay-btn:hover:not(.active) { background: rgba(255,255,255,.08); color: rgba(255,255,255,.8); }
+
+    /* Gold price sub-label on nest cards */
+    .nest-card.common   .nest-price-gold { color: #aaa; }
+    .nest-card.rare     .nest-price-gold { color: #5bb8f5; }
+    .nest-card.legendary .nest-price-gold { color: #f0b840; }
+
+    /* wallet section in marketplace */
+    .mp-wallet-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px 18px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+    .mp-wallet-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+    .mp-wallet-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+    .mp-wallet-bal { font-size: .92rem; font-weight: 700; color: var(--sol-green); }
+    .mp-wallet-addr-wrap {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(153,69,255,.06);
+      border: 1px solid rgba(153,69,255,.2);
+      border-radius: 10px; padding: 8px 12px;
+      margin-bottom: 10px;
+    }
+    .mp-wallet-addr {
+      flex: 1; font-size: .75rem; color: rgba(255,255,255,.55);
+      font-family: 'Courier New', monospace; word-break: break-all; line-height: 1.4;
+    }
+    .mp-wallet-actions { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="cloud-layer"></div>
+
+  <div class="dashboard" id="dashboard" style="opacity:0">
+
+    <!-- Header -->
+    <header class="dash-header">
+      <div class="dash-logo" id="logoHome" style="cursor:pointer;" title="Back to Dashboard">
+        <img src="images/logo.png" alt="SolClash" />
+        <span>SolClash</span>
+      </div>
+      <div class="dash-header-right">
+        <a href="/auth/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <!-- Profile card -->
+    <section class="profile-card">
+      <button class="settings-btn" id="dashboardSettingsBtn" title="Game Settings">⚙️</button>
+      <div class="profile-left">
+        <div class="avatar-wrap" id="avatarWrap">
+          <img id="userAvatar" src="" alt="avatar" class="avatar-img" />
+          <div class="avatar-overlay">
+            <div class="avatar-overlay-content">
+              <svg class="camera-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <div class="avatar-overlay-text">CHANGE PHOTO</div>
+            </div>
+          </div>
+          <div class="provider-badge" id="providerBadge"></div>
+          <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
+        </div>
+        <div class="profile-info">
+          <div class="name-row">
+            <h2 id="userName">Loading…</h2>
+            <button class="icon-btn" id="editNameBtn" title="Edit username">✏️</button>
+          </div>
+          <div class="rank-row">
+            <img id="rankBadge" src="" alt="rank" class="rank-badge" />
+            <span id="rankLabel" class="rank-label"></span>
+            <span id="levelLabel" class="level-label"></span>
+          </div>
+        </div>
+      </div>
+      <div class="exp-section">
+        <div class="exp-label-row">
+          <img src="images/exp.png" alt="EXP" class="stat-icon" />
+          <span class="exp-text">EXP</span>
+          <span id="expVal" class="exp-val">0 / 200</span>
+        </div>
+        <div class="exp-bar-bg">
+          <div class="exp-bar-fill" id="expBar"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Nav buttons -->
+    <section class="features-section" style="margin-bottom:14px;">
+      <div style="display:flex;gap:12px;">
+        <button class="feature-btn active" id="marketplaceBtn">🛒 Marketplace</button>
+        <button class="feature-btn" id="inventoryBtn">🎒 Inventory</button>
+      </div>
+    </section>
+
+    <!-- Solana Wallet card -->
+    <div class="mp-wallet-card">
+      <div class="mp-wallet-header">
+        <span class="mp-wallet-label">Solana Wallet</span>
+        <span class="mp-wallet-bal" id="walletBalance">0.0000 SOL</span>
+      </div>
+      <div class="mp-wallet-addr-wrap">
+        <span class="mp-wallet-addr" id="walletAddress">—</span>
+        <button class="copy-btn" id="qrWallet" title="Show QR"><img src="images/qr.png" alt="QR" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;opacity:.75;" /></button>
+        <button class="copy-btn" id="copyWallet" title="Copy address">⧉</button>
+      </div>
+      <div class="mp-wallet-actions">
+        <button class="wallet-action-btn deposit-btn" id="depositBtn">⬇ Deposit</button>
+        <button class="wallet-action-btn swap-btn" disabled title="Coming soon">⇄ Swap</button>
+      </div>
+    </div>
+
+    <!-- Marketplace content -->
+    <section class="mp-section">
+
+      <!-- Category tabs -->
+      <div class="mp-tabs">
+        <button class="mp-tab active" id="tabNest" data-tab="nest"><img src="images/nest-icon.png" alt="Nest" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:6px;image-rendering:pixelated;">Nest</button>
+        <button class="mp-tab" id="tabAuction" data-tab="auction">🏷️ Auction <span class="soon-badge">SOON</span></button>
+      </div>
+
+      <!-- NEST panel -->
+      <div class="mp-panel active" id="panelNest">
+        <div class="nest-grid">
+
+          <!-- Common: Ice Nest -->
+          <div class="nest-card common" data-rarity="common" data-name="Ice Nest" data-price="0.35" data-img="images/nest/common.png" data-desc="A frosty nest carved from ancient glacial ice. Perfect for cold-dwelling birds.">
+            <div class="nest-img-wrap">
+              <img src="images/nest/common.png" alt="Ice Nest" />
+            </div>
+            <div class="nest-label">
+              <div class="nest-rarity">Common</div>
+              <div class="nest-name">Ice Nest</div>
+              <div class="nest-price" id="priceCommonSol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">0.35 SOL</div>
+              <div class="nest-price-gold" id="priceCommonGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
+            </div>
+          </div>
+
+          <!-- Rare: Volcano Nest -->
+          <div class="nest-card rare" data-rarity="rare" data-name="Volcano Nest" data-price="0.75" data-img="images/nest/rare.png" data-desc="Forged inside a volcano, this nest radiates intense heat and mystical power.">
+            <div class="nest-img-wrap">
+              <img src="images/nest/rare.png" alt="Volcano Nest" />
+            </div>
+            <div class="nest-label">
+              <div class="nest-rarity">Rare</div>
+              <div class="nest-name">Volcano Nest</div>
+              <div class="nest-price" id="priceRareSol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">0.75 SOL</div>
+              <div class="nest-price-gold" id="priceRareGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
+            </div>
+          </div>
+
+          <!-- Legendary: Cosmic Nest -->
+          <div class="nest-card legendary" data-rarity="legendary" data-name="Cosmic Nest" data-price="1.2" data-img="images/nest/legendary.png" data-desc="Born from the stars — a nest of cosmic energy that transcends time itself.">
+            <div class="nest-img-wrap">
+              <img src="images/nest/legendary.png" alt="Cosmic Nest" />
+            </div>
+            <div class="nest-label">
+              <div class="nest-rarity">Legendary</div>
+              <div class="nest-name">Cosmic Nest</div>
+              <div class="nest-price" id="priceLegendarySol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">1.2 SOL</div>
+              <div class="nest-price-gold" id="priceLegendaryGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- AUCTION panel -->
+      <div class="mp-panel" id="panelAuction">
+        <div class="auction-soon">
+          <div class="soon-icon">🏷️</div>
+          <h3>Auction Coming Soon</h3>
+          <p>The Auction House is currently under construction. Rare and one-of-a-kind items will be available for bidding with SOL. Stay tuned for the grand opening!</p>
+        </div>
+      </div>
+
+    </section>
+
+  </div><!-- /.dashboard -->
+
+  <!-- ── Purchase Modal ── -->
+  <div class="purchase-modal-overlay" id="purchaseOverlay">
+    <div class="purchase-modal" id="purchaseModal">
+      <img src="" alt="Nest" class="pm-nest-img" id="pmImg" />
+      <div class="pm-rarity" id="pmRarity">Common</div>
+      <div class="pm-name" id="pmName">Ice Nest</div>
+      <div class="pm-desc" id="pmDesc">A frosty nest.</div>
+
+      <!-- Payment method toggle -->
+      <div class="pm-pay-toggle" id="pmPayToggle">
+        <button class="pm-pay-btn active" id="pmPaySol" data-method="sol"><img src="images/solana.png" alt="SOL" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;"> SOL</button>
+        <button class="pm-pay-btn" id="pmPayGold" data-method="gold"><img src="images/gold.png" alt="Gold" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:3px;"> $GOLD</button>
+      </div>
+
+      <!-- Price display — switches per method -->
+      <div class="pm-price-box">
+        <span class="pm-price-label" id="pmPriceLabel">Price</span>
+        <span class="pm-price-val" id="pmPrice">0.35 SOL</span>
+      </div>
+
+      <!-- Balance line — switches per method -->
+      <div class="pm-wallet-info">
+        <span id="pmBalanceLabel">Your balance:</span> <span id="pmBalance">— SOL</span>
+      </div>
+
+      <!-- Processing state -->
+      <div class="pm-processing" id="pmProcessing">
+        <div class="pm-spinner"></div>
+        <div class="pm-processing-text" id="pmProcessingText">Sending transaction…</div>
+      </div>
+
+      <!-- Result state -->
+      <div class="pm-result" id="pmResult">
+        <div class="pm-result-icon" id="pmResultIcon">✅</div>
+        <div class="pm-result-title" id="pmResultTitle">Purchase Successful!</div>
+        <div class="pm-result-msg" id="pmResultMsg"></div>
+      </div>
+
+      <div class="pm-actions" id="pmActions">
+        <button class="pm-btn-cancel" id="pmCancel">Cancel</button>
+        <button class="pm-btn-buy" id="pmBuy">🛒 Buy Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Name Modal ── -->
+  <div id="editNameModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3 class="modal-title">✏️ Edit Username</h3>
+      <p class="modal-sub">Choose a unique name with a domain suffix</p>
+      <div class="name-input-row">
+        <input id="namePrefix" class="name-input" type="text" maxlength="15" placeholder="yourname" />
+        <div class="suffix-drop" id="suffixDrop">
+          <button type="button" class="suffix-drop-btn" id="suffixDropBtn">
+            <span id="suffixDropLabel">.clash</span>
+            <svg class="suffix-drop-arrow" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <ul class="suffix-drop-list" id="suffixDropList">
+            <li class="suffix-drop-item active" data-value=".clash">.clash</li>
+            <li class="suffix-drop-item" data-value=".sol">.sol</li>
+          </ul>
+        </div>
+        <input type="hidden" id="nameSuffix" value=".clash" />
+      </div>
+      <p id="nameError" class="modal-error" style="display:none"></p>
+      <div class="modal-actions">
+        <button class="modal-btn-cancel" id="editNameCancel">Cancel</button>
+        <button class="modal-btn-confirm" id="editNameSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── QR Code Modal ── -->
+  <div id="qrModal" class="modal-overlay" style="display:none">
+    <div class="modal-box" style="text-align:center">
+      <h3 class="modal-title"><img src="images/qr.png" alt="QR" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:6px;opacity:.85;" />Wallet QR Code</h3>
+      <p class="modal-sub" id="qrAddressFull" style="font-family:'Courier New',monospace;font-size:.72rem;word-break:break-all;margin-bottom:18px;"></p>
+      <div id="qrCanvas" style="display:flex;justify-content:center;margin-bottom:18px;"></div>
+      <p style="font-size:.75rem;color:rgba(255,255,255,.35);">Scan to receive SOL</p>
+      <div class="modal-actions" style="justify-content:center">
+        <button class="modal-btn-cancel" id="qrClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Deposit Modal ── -->
+  <div id="depositModal" class="modal-overlay" style="display:none">
+    <div class="modal-box" style="text-align:center">
+      <h3 class="modal-title">⬇ Deposit SOL</h3>
+      <p class="modal-sub">Send SOL to your wallet address below</p>
+      <div class="deposit-address-box">
+        <span id="depositAddrText" style="font-family:'Courier New',monospace;font-size:.78rem;word-break:break-all;color:rgba(255,255,255,.8);"></span>
+      </div>
+      <button class="modal-btn-confirm" id="depositCopyBtn" style="margin:14px auto 0;display:block;min-width:160px;">⧉ Copy Address</button>
+      <p style="font-size:.75rem;color:rgba(255,255,255,.35);margin-top:16px;">Only send SOL (Solana) to this address</p>
+      <div class="modal-actions" style="justify-content:center;margin-top:8px">
+        <button class="modal-btn-cancel" id="depositClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Settings Modal (full — music + backup wallet) ── -->
+  <div id="settingsModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3 class="modal-title">⚙️ Game Settings</h3>
+      <p class="modal-sub">Customize your music and audio experience</p>
+
+      <div class="settings-row">
+        <span style="font-size:.95rem;color:#fff;font-weight:600;">🎵 Background Music</span>
+        <label class="switch"><input type="checkbox" id="bgMusicToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="settings-row-col">
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+          <span style="font-size:.9rem;color:rgba(255,255,255,.7);">Volume</span>
+          <span id="musicVolumeVal" style="font-size:.9rem;color:var(--sol-green);font-weight:700;font-family:monospace;">50%</span>
+        </div>
+        <input type="range" id="bgMusicVolume" min="0" max="100" value="50" class="settings-range">
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <h3 class="modal-title" style="margin-top:18px;display:flex;align-items:center;gap:8px;">🔑 Backup Wallet</h3>
+      <p class="modal-sub" style="margin-bottom:12px;">Reveal your 12-word seed phrase securely. Keep it private!</p>
+
+      <!-- Hold to Reveal -->
+      <div id="backupVerificationArea" class="settings-row-col" style="align-items:center;justify-content:center;padding:10px 0;">
+        <div class="hold-circle-container">
+          <svg class="hold-svg" viewBox="0 0 100 100">
+            <circle class="hold-bg-circle" cx="50" cy="50" r="42"></circle>
+            <circle class="hold-progress-circle" id="holdProgressCircle" cx="50" cy="50" r="42"></circle>
+          </svg>
+          <button class="hold-btn" id="holdRevealBtn" type="button">
+            <span class="hold-icon">🔒</span>
+            <span class="hold-text">Hold to Reveal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Result area -->
+      <div id="backupResultArea" class="settings-row-col" style="display:none;">
+        <div id="legacyKeyContainer" style="display:none;width:100%;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:.85rem;color:#ff8a94;font-weight:bold;">⚠️ Legacy Account (Private Key)</span>
+          </div>
+          <div class="key-display-wrap">
+            <input type="password" id="legacyPrivateKeyInput" class="key-display-input" readonly value="">
+            <button class="key-action-btn" id="toggleLegacyKeyBtn" type="button" title="Show/Hide">👁️</button>
+            <button class="key-action-btn" id="copyLegacyKeyBtn" type="button" title="Copy">⧉</button>
+          </div>
+        </div>
+        <div id="seedPhraseContainer" style="display:none;width:100%;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:.85rem;color:var(--sol-green);font-weight:bold;">📝 12-Word Seed Phrase</span>
+            <button class="copy-btn" id="copySeedBtn" type="button" style="padding:2px 8px;font-size:.75rem;border-radius:6px;">⧉ Copy All</button>
+          </div>
+          <div class="seed-grid" id="seedGrid"></div>
+        </div>
+        <div class="warning-banner">
+          🚨 WARNING: Never share your seed phrase or private key! Anyone with this key can steal all your funds.
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:24px;">
+        <button class="modal-btn-cancel" id="settingsCloseBtn" style="width:100%;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Alert Modal ── -->
+  <div id="alertModal" class="modal-overlay" style="display:none">
+    <div class="modal-box" style="text-align:center">
+      <h3 class="modal-title" id="alertModalTitle">⚠️ Alert</h3>
+      <p class="modal-sub" id="alertModalMessage" style="color:rgba(255,255,255,.7);margin:16px 0;line-height:1.5;word-break:break-word;"></p>
+      <div class="modal-actions" style="justify-content:center;margin-top:12px;">
+        <button class="modal-btn-confirm" id="alertModalClose" style="min-width:120px;">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <script>
+    /* ── helpers ── */
+    function showAlert(msg, title = '⚠️ Alert') {
+      document.getElementById('alertModalTitle').innerHTML = title;
+      document.getElementById('alertModalMessage').innerHTML = msg;
+      document.getElementById('alertModal').style.display = 'flex';
+    }
+    document.getElementById('alertModalClose').addEventListener('click', () => {
+      document.getElementById('alertModal').style.display = 'none';
+    });
+    document.getElementById('alertModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('alertModal'))
+        document.getElementById('alertModal').style.display = 'none';
+    });
+
+    function showQR(address) {
+      const wrap = document.getElementById('qrCanvas');
+      wrap.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        const cvs = document.createElement('canvas');
+        wrap.appendChild(cvs);
+        QRCode.toCanvas(cvs, address, { width: 200, margin: 2, color: { dark: '#ffffff', light: '#0a0f1e' } });
+      } else {
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(address)}&bgcolor=0a0f1e&color=ffffff&margin=4`;
+        img.alt = 'QR';
+        img.style = 'width:200px;height:200px;border-radius:8px;';
+        wrap.appendChild(img);
+      }
+      document.getElementById('qrModal').style.display = 'flex';
+    }
+
+    /* ── Background ── */
+    const BG = ['images/background-image.PNG','images/bg2.png','images/bg3.gif'];
+    const bg = BG[Math.floor(Math.random() * BG.length)];
+    const layer = document.getElementById('bgLayer');
+    const isFixed = bg.includes('background-image') || bg.endsWith('.gif');
+    layer.style.backgroundImage = `url('${bg}')`;
+    if (isFixed) {
+      layer.style.cssText += ';background-size:cover;background-repeat:no-repeat;background-position:center;animation:none';
+    } else {
+      layer.style.cssText += ';background-size:auto 100%;background-repeat:repeat-x;background-position:center bottom';
+    }
+
+    /* ── Provider icon map ── */
+    const PROVIDER_ICON = {
+      google:  `<svg viewBox="0 0 24 24"><path fill="#EA4335" d="M5.27 9.76A7.08 7.08 0 0 1 12 4.9c1.76 0 3.35.65 4.57 1.7l3.4-3.4A11.95 11.95 0 0 0 12 .96a12 12 0 0 0-10.74 6.64l4.01 3.16Z"/><path fill="#34A853" d="M16.04 18.01A7.07 7.07 0 0 1 12 19.1a7.08 7.08 0 0 1-6.72-4.84L1.26 17.4A12 12 0 0 0 12 23.04c3.06 0 5.98-1.1 8.18-3.09l-4.14-2.94Z"/><path fill="#4A90D9" d="M20.18 20a11.9 11.9 0 0 0 3.78-8.97c0-.73-.08-1.49-.2-2.19H12v4.62h6.47a5.52 5.52 0 0 1-2.43 3.56l4.14 2.98Z"/><path fill="#FBBC05" d="M5.28 14.26A7.1 7.1 0 0 1 4.9 12c0-.79.13-1.55.37-2.25L1.26 6.6A11.96 11.96 0 0 0 0 12c0 1.92.45 3.74 1.26 5.35l4.02-3.09Z"/></svg>`,
+      github:  `<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 .3A12 12 0 0 0 0 12.3c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.03c-3.34.72-4.04-1.61-4.04-1.61-.55-1.4-1.33-1.77-1.33-1.77-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.005 2.04.138 3 .4 2.28-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 24 12.3 12 12 0 0 0 12 .3Z"/></svg>`,
+      discord: `<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.32 4.37A19.8 19.8 0 0 0 15.43 3c-.22.4-.47.93-.64 1.35a18.25 18.25 0 0 0-5.58 0A13.72 13.72 0 0 0 8.56 3a19.73 19.73 0 0 0-4.89 1.37C.53 8.89-.32 13.3.1 17.65a19.9 19.9 0 0 0 6.07 3.08c.49-.67.93-1.38 1.3-2.13a12.97 12.97 0 0 1-2.05-1l.5-.4a14.18 14.18 0 0 0 12.14 0l.5.4a12.82 12.82 0 0 1-2.06 1c.37.75.8 1.46 1.3 2.13a19.83 19.83 0 0 0 6.07-3.09c.5-5.05-.84-9.43-3.55-13.27ZM8.02 15.07c-1.2 0-2.19-1.12-2.19-2.5s.96-2.5 2.19-2.5c1.22 0 2.21 1.12 2.19 2.5 0 1.38-.97 2.5-2.19 2.5Zm8.09 0c-1.2 0-2.19-1.12-2.19-2.5s.97-2.5 2.19-2.5c1.23 0 2.21 1.12 2.19 2.5 0 1.38-.96 2.5-2.19 2.5Z"/></svg>`,
+    };
+
+    let _walletAddr    = null;
+    let _walletBalance = 0;
+    let _goldBalance   = 0;
+    let _currentNest   = null;
+    let _goldPrices    = { common: null, rare: null, legendary: null };
+    let _payMethod     = 'sol';
+
+    /* ── Load nest SOL prices + live gold prices ── */
+    (async function loadPrices() {
+      try {
+        const solRes  = await fetch('/api/marketplace/nest-prices');
+        const solData = await solRes.json();
+        if (solData.ok) {
+          const p = solData.prices;
+          for (const [rarity, price] of Object.entries(p)) {
+            const card = document.querySelector('.nest-card.' + rarity);
+            if (card) card.dataset.price = price;
+            const key = 'price' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + 'Sol';
+            const el  = document.getElementById(key);
+            if (el) el.innerHTML = '<img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">' + price + ' SOL';
+          }
+        }
+      } catch(e) {}
+      loadGoldPrices();
+    })();
+
+    function loadGoldPrices() {
+      fetch('/api/marketplace/sol-php')
+        .then(r => r.json())
+        .then(d => {
+          if (!d.ok || !d.gold) return;
+          _goldPrices = d.gold;
+          document.getElementById('priceCommonGold').textContent    = _goldPrices.common.toLocaleString()    + ' $GOLD';
+          document.getElementById('priceRareGold').textContent      = _goldPrices.rare.toLocaleString()      + ' $GOLD';
+          document.getElementById('priceLegendaryGold').textContent = _goldPrices.legendary.toLocaleString() + ' $GOLD';
+          document.querySelector('[data-rarity="common"]').dataset.gold    = _goldPrices.common;
+          document.querySelector('[data-rarity="rare"]').dataset.gold      = _goldPrices.rare;
+          document.querySelector('[data-rarity="legendary"]').dataset.gold = _goldPrices.legendary;
+        })
+        .catch(() => { document.querySelectorAll('.nest-price-gold').forEach(el => el.textContent = '— $GOLD'); });
+    }
+
+    /* ── Payment toggle ── */
+    function setPayMethod(method) {
+      _payMethod = method;
+      document.getElementById('pmPaySol').classList.toggle('active',  method === 'sol');
+      document.getElementById('pmPayGold').classList.toggle('active', method === 'gold');
+      updateModalPriceDisplay();
+    }
+    function updateModalPriceDisplay() {
+      if (!_currentNest) return;
+      if (_payMethod === 'sol') {
+        document.getElementById('pmPrice').textContent        = _currentNest.price + ' SOL';
+        document.getElementById('pmBalanceLabel').textContent = 'Wallet balance:';
+        document.getElementById('pmBalance').textContent      = _walletBalance.toFixed(4) + ' SOL';
+        document.getElementById('pmBuy').innerHTML = '<img src="images/buy.png" alt="buy" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:5px;"> Buy with SOL';
+      } else {
+        const gp = _currentNest.goldPrice;
+        document.getElementById('pmPrice').textContent        = gp != null ? gp.toLocaleString() + ' $GOLD' : '— $GOLD (loading…)';
+        document.getElementById('pmBalanceLabel').textContent = '$GOLD balance:';
+        document.getElementById('pmBalance').textContent      = _goldBalance.toLocaleString() + ' $GOLD';
+        document.getElementById('pmBuy').innerHTML = '<img src="images/buy.png" alt="buy" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:5px;"> Buy with $GOLD';
+      }
+    }
+    document.getElementById('pmPaySol').addEventListener('click',  () => setPayMethod('sol'));
+    document.getElementById('pmPayGold').addEventListener('click', () => setPayMethod('gold'));
+
+    /* ── Load user ── */
+    fetch('/auth/me')
+      .then(r => r.json())
+      .then(u => {
+        if (!u.loggedIn) { window.location.href = '/'; return; }
+
+        const av = document.getElementById('userAvatar');
+        av.src = u.avatar || 'images/birds/Bird.png';
+        av.onerror = () => { av.src = 'images/birds/Bird.png'; };
+
+        document.getElementById('providerBadge').innerHTML = PROVIDER_ICON[u.authProvider] || '';
+        document.getElementById('userName').textContent    = u.name  || 'Player';
+        document.getElementById('rankBadge').src           = u.badge || 'images/badges/bronze.png';
+        document.getElementById('rankLabel').textContent   = u.rank  || 'Bronze';
+        document.getElementById('levelLabel').textContent  = `Lv. ${u.level || 0}`;
+
+        const cur = u.currentExp || 0, req = u.requiredExp || 200;
+        document.getElementById('expVal').textContent = `${cur} / ${req}`;
+        document.getElementById('expBar').style.width = Math.min(100, Math.round(cur / req * 100)) + '%';
+
+        _walletAddr = u.walletAddress || null;
+        document.getElementById('walletAddress').textContent   = _walletAddr || '—';
+        document.getElementById('depositAddrText').textContent = _walletAddr || '—';
+        document.getElementById('qrAddressFull').textContent   = _walletAddr || '—';
+
+        _walletBalance = u.walletBalance || 0;
+        _goldBalance   = u.goldBalance   || 0;
+        document.getElementById('walletBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
+
+        if (_walletAddr) {
+          fetch('/api/balance/' + _walletAddr)
+            .then(r => r.json())
+            .then(d => {
+              if (typeof d.balance === 'number') {
+                _walletBalance = d.balance;
+                document.getElementById('walletBalance').textContent = d.balance.toFixed(4) + ' SOL';
+              }
+            }).catch(() => {});
+        }
+
+        document.getElementById('dashboard').style.opacity = '1';
+        loadGoldPrices();
+      })
+      .catch(() => { window.location.href = '/'; });
+
+    /* ── Nav buttons ── */
+    document.getElementById('marketplaceBtn').addEventListener('click', () => window.location.href = '/marketplace');
+    document.getElementById('inventoryBtn').addEventListener('click',   () => window.location.href = '/inventory');
+
+    /* ── Tab switching ── */
+    document.querySelectorAll('.mp-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll('.mp-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.mp-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel' + target.charAt(0).toUpperCase() + target.slice(1)).classList.add('active');
+      });
+    });
+
+    /* ── Wallet copy & QR ── */
+    document.getElementById('copyWallet').addEventListener('click', () => {
+      if (!_walletAddr) return;
+      navigator.clipboard.writeText(_walletAddr).then(() => {
+        const b = document.getElementById('copyWallet');
+        b.textContent = '✓';
+        setTimeout(() => { b.textContent = '⧉'; }, 1500);
+      });
+    });
+    document.getElementById('qrWallet').addEventListener('click', () => {
+      if (_walletAddr) showQR(_walletAddr);
+    });
+    document.getElementById('qrClose').addEventListener('click', () => {
+      document.getElementById('qrModal').style.display = 'none';
+    });
+    document.getElementById('depositBtn').addEventListener('click', () => {
+      document.getElementById('depositModal').style.display = 'flex';
+    });
+    document.getElementById('depositClose').addEventListener('click', () => {
+      document.getElementById('depositModal').style.display = 'none';
+    });
+    document.getElementById('depositCopyBtn').addEventListener('click', () => {
+      if (!_walletAddr) return;
+      navigator.clipboard.writeText(_walletAddr).then(() => {
+        document.getElementById('depositCopyBtn').textContent = '✓ Copied';
+        setTimeout(() => { document.getElementById('depositCopyBtn').textContent = '⧉ Copy Address'; }, 1500);
+      });
+    });
+
+    /* ── Nest cards click ── */
+    document.querySelectorAll('.nest-card').forEach(card => {
+      card.addEventListener('click', () => {
+        _currentNest = {
+          rarity:    card.dataset.rarity,
+          name:      card.dataset.name,
+          price:     parseFloat(card.dataset.price),
+          goldPrice: card.dataset.gold ? parseInt(card.dataset.gold, 10) : (_goldPrices[card.dataset.rarity] || null),
+          img:       card.dataset.img,
+          desc:      card.dataset.desc,
+        };
+        openPurchaseModal(_currentNest);
+      });
+    });
+
+    function openPurchaseModal(nest) {
+      const modal   = document.getElementById('purchaseModal');
+      const overlay = document.getElementById('purchaseOverlay');
+      modal.className = 'purchase-modal ' + nest.rarity;
+      document.getElementById('pmImg').src            = nest.img;
+      document.getElementById('pmRarity').textContent = nest.rarity.charAt(0).toUpperCase() + nest.rarity.slice(1);
+      document.getElementById('pmName').textContent   = nest.name;
+      document.getElementById('pmDesc').textContent   = nest.desc;
+      // reset to SOL on each open
+      _payMethod = 'sol';
+      document.getElementById('pmPaySol').classList.add('active');
+      document.getElementById('pmPayGold').classList.remove('active');
+      updateModalPriceDisplay();
+      document.getElementById('pmProcessing').classList.remove('visible');
+      document.getElementById('pmResult').classList.remove('visible');
+      document.getElementById('pmActions').style.display  = 'flex';
+      document.getElementById('pmPayToggle').style.display = 'flex';
+      document.getElementById('pmBuy').disabled = false;
+      overlay.classList.add('open');
+    }
+
+    document.getElementById('pmCancel').addEventListener('click', () => {
+      document.getElementById('purchaseOverlay').classList.remove('open');
+    });
+    document.getElementById('purchaseOverlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('purchaseOverlay'))
+        document.getElementById('purchaseOverlay').classList.remove('open');
+    });
+
+    /* ── Buy button ── */
+    document.getElementById('pmBuy').addEventListener('click', async () => {
+      if (!_currentNest) return;
+      if (_payMethod === 'sol' && !_walletAddr) {
+        showAlert('No wallet found. Please refresh.', '⚠️ Wallet Error'); return;
+      }
+      const buyBtn     = document.getElementById('pmBuy');
+      const cancelBtn  = document.getElementById('pmCancel');
+      const processing = document.getElementById('pmProcessing');
+      const result     = document.getElementById('pmResult');
+      const actions    = document.getElementById('pmActions');
+      const toggle     = document.getElementById('pmPayToggle');
+      buyBtn.disabled = true;
+      cancelBtn.style.pointerEvents = 'none';
+      toggle.style.display = 'none';
+      processing.classList.add('visible');
+
+      if (_payMethod === 'sol') {
+        document.getElementById('pmProcessingText').textContent = 'Sending transaction to Solana…';
+        try {
+          const res  = await fetch('/api/marketplace/buy-nest', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rarity: _currentNest.rarity }),
+          });
+          const data = await res.json();
+          processing.classList.remove('visible');
+          if (res.ok && data.ok) {
+            _walletBalance = data.newBalance || _walletBalance;
+            document.getElementById('walletBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
+            result.classList.add('visible');
+            document.getElementById('pmResultIcon').textContent  = '✅';
+            document.getElementById('pmResultTitle').textContent = 'Purchase Successful!';
+            document.getElementById('pmResultMsg').innerHTML =
+              '<strong style="color:var(--sol-green)">' + data.nestTag + '</strong> added to inventory!<br><br>' +
+              '<span style="font-size:.7rem">TX: <a href="https://solscan.io/tx/' + data.txSignature + '" target="_blank" style="color:var(--sol-green)">' + data.txSignature.slice(0,20) + '…</a></span>';
+            actions.innerHTML = '<button class="pm-btn-buy" id="pmDone" style="width:100%">🎒 Go to Inventory</button>';
+            document.getElementById('pmDone').addEventListener('click', () => { window.location.href = '/inventory'; });
+          } else { throw new Error(data.error || 'Transaction failed.'); }
+        } catch (err) {
+          processing.classList.remove('visible');
+          result.classList.add('visible');
+          document.getElementById('pmResultIcon').textContent  = '❌';
+          document.getElementById('pmResultTitle').textContent = 'Purchase Failed';
+          document.getElementById('pmResultMsg').textContent   = err.message;
+          actions.innerHTML = '<button class="pm-btn-cancel" id="pmRetry" style="flex:1">Close</button>';
+          document.getElementById('pmRetry').addEventListener('click', () => { document.getElementById('purchaseOverlay').classList.remove('open'); });
+          cancelBtn.style.pointerEvents = '';
+        }
+
+      } else {
+        // $GOLD payment
+        document.getElementById('pmProcessingText').textContent = 'Deducting $GOLD…';
+        try {
+          const res  = await fetch('/api/marketplace/buy-nest-gold', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rarity: _currentNest.rarity }),
+          });
+          const data = await res.json();
+          processing.classList.remove('visible');
+          if (res.ok && data.ok) {
+            _goldBalance = data.newGold;
+            result.classList.add('visible');
+            document.getElementById('pmResultIcon').textContent  = '✅';
+            document.getElementById('pmResultTitle').textContent = 'Purchase Successful!';
+            document.getElementById('pmResultMsg').innerHTML =
+              '<strong style="color:var(--sol-green)">' + data.nestTag + '</strong> added to inventory!<br><br>' +
+              '<span style="font-size:.78rem;color:rgba(255,255,255,.5);">Remaining $GOLD: <strong style="color:#ffd050">' + data.newGold.toLocaleString() + '</strong></span>';
+            actions.innerHTML = '<button class="pm-btn-buy" id="pmDone" style="width:100%">🎒 Go to Inventory</button>';
+            document.getElementById('pmDone').addEventListener('click', () => { window.location.href = '/inventory'; });
+          } else { throw new Error(data.error || 'Purchase failed.'); }
+        } catch (err) {
+          processing.classList.remove('visible');
+          result.classList.add('visible');
+          document.getElementById('pmResultIcon').textContent  = '❌';
+          document.getElementById('pmResultTitle').textContent = 'Purchase Failed';
+          document.getElementById('pmResultMsg').textContent   = err.message;
+          actions.innerHTML = '<button class="pm-btn-cancel" id="pmRetry" style="flex:1">Close</button>';
+          document.getElementById('pmRetry').addEventListener('click', () => { document.getElementById('purchaseOverlay').classList.remove('open'); });
+          cancelBtn.style.pointerEvents = '';
+        }
+      }
+    });
+
+    /* ── Edit Name Modal ── */
+    const suffixDrop      = document.getElementById('suffixDrop');
+    const suffixDropBtn   = document.getElementById('suffixDropBtn');
+    const suffixDropList  = document.getElementById('suffixDropList');
+    const suffixDropLabel = document.getElementById('suffixDropLabel');
+    const suffixInput     = document.getElementById('nameSuffix');
+
+    suffixDropBtn.addEventListener('click', e => { e.stopPropagation(); suffixDrop.classList.toggle('open'); });
+    suffixDropList.addEventListener('click', e => {
+      const item = e.target.closest('.suffix-drop-item');
+      if (!item) return;
+      suffixDropList.querySelectorAll('.suffix-drop-item').forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+      suffixInput.value = item.dataset.value;
+      suffixDropLabel.textContent = item.dataset.value;
+      suffixDrop.classList.remove('open');
+    });
+    document.addEventListener('click', () => suffixDrop.classList.remove('open'));
+
+    document.getElementById('editNameBtn').addEventListener('click', () => {
+      const cur = document.getElementById('userName').textContent.trim();
+      let prefix = cur, suffix = '.clash';
+      for (const s of ['.clash', '.sol']) {
+        if (cur.endsWith(s)) { prefix = cur.slice(0, -s.length); suffix = s; break; }
+      }
+      document.getElementById('namePrefix').value = (prefix === 'Loading…' || prefix === 'Player') ? '' : prefix;
+      suffixInput.value = suffix; suffixDropLabel.textContent = suffix;
+      suffixDropList.querySelectorAll('.suffix-drop-item').forEach(el => el.classList.toggle('active', el.dataset.value === suffix));
+      document.getElementById('nameError').style.display = 'none';
+      document.getElementById('editNameModal').style.display = 'flex';
+    });
+    document.getElementById('editNameCancel').addEventListener('click', () => { document.getElementById('editNameModal').style.display = 'none'; });
+    document.getElementById('editNameModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('editNameModal')) document.getElementById('editNameModal').style.display = 'none';
+    });
+    document.getElementById('editNameSave').addEventListener('click', async () => {
+      const prefix = document.getElementById('namePrefix').value.trim();
+      const suffix = document.getElementById('nameSuffix').value;
+      const errEl  = document.getElementById('nameError');
+      const saveBtn = document.getElementById('editNameSave');
+      errEl.style.display = 'none';
+      if (!prefix) { errEl.textContent = 'Username cannot be empty.'; errEl.style.display = 'block'; return; }
+      if (!/^[a-zA-Z0-9_-]{3,15}$/.test(prefix)) { errEl.textContent = '3–15 chars: letters, numbers, _ or -'; errEl.style.display = 'block'; return; }
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+      try {
+        const res  = await fetch('/api/update-profile-name', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prefix, suffix }) });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error || 'Failed to save.'; errEl.style.display = 'block'; }
+        else { document.getElementById('userName').textContent = data.name; document.getElementById('editNameModal').style.display = 'none'; }
+      } catch { errEl.textContent = 'Network error.'; errEl.style.display = 'block'; }
+      finally   { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+    });
+
+    /* ── Logo → back to dashboard ── */
+    document.getElementById('logoHome').addEventListener('click', () => {
+      window.location.href = '/dashboard';
+    });
+
+    /* ── Settings ── */
+    const bgMusic = new Audio('sounds effect/bg-music.mp3');
+    bgMusic.loop = true;
+    let isMusicEnabled = localStorage.getItem('bgMusicEnabled') !== 'false';
+    let musicVolume    = parseInt(localStorage.getItem('bgMusicVolume') || '50', 10);
+    bgMusic.volume     = musicVolume / 100;
+
+    const settingsModal   = document.getElementById('settingsModal');
+    const bgMusicToggle   = document.getElementById('bgMusicToggle');
+    const bgMusicVolume   = document.getElementById('bgMusicVolume');
+    const musicVolumeVal  = document.getElementById('musicVolumeVal');
+    bgMusicToggle.checked = isMusicEnabled;
+    bgMusicVolume.value   = musicVolume;
+    musicVolumeVal.textContent = musicVolume + '%';
+
+    let autoPlayStarted = false;
+    function startAutoPlay() {
+      if (autoPlayStarted) return;
+      if (isMusicEnabled) { bgMusic.play().then(() => { autoPlayStarted = true; removeL(); }).catch(() => {}); }
+      else { autoPlayStarted = true; removeL(); }
+    }
+    function removeL() {
+      document.removeEventListener('click', startAutoPlay);
+      document.removeEventListener('keydown', startAutoPlay);
+      document.removeEventListener('touchstart', startAutoPlay);
+    }
+    document.addEventListener('click', startAutoPlay);
+    document.addEventListener('keydown', startAutoPlay);
+    document.addEventListener('touchstart', startAutoPlay);
+
+    document.getElementById('dashboardSettingsBtn').addEventListener('click', () => {
+      resetBackupSection();
+      settingsModal.style.display = 'flex';
+    });
+    document.getElementById('settingsCloseBtn').addEventListener('click', () => {
+      settingsModal.style.display = 'none';
+      resetBackupSection();
+    });
+    settingsModal.addEventListener('click', e => {
+      if (e.target === settingsModal) { settingsModal.style.display = 'none'; resetBackupSection(); }
+    });
+
+    bgMusicToggle.addEventListener('change', () => {
+      isMusicEnabled = bgMusicToggle.checked;
+      localStorage.setItem('bgMusicEnabled', isMusicEnabled);
+      if (isMusicEnabled) bgMusic.play().catch(() => {}); else bgMusic.pause();
+    });
+    bgMusicVolume.addEventListener('input', () => {
+      musicVolume = parseInt(bgMusicVolume.value, 10);
+      musicVolumeVal.textContent = musicVolume + '%';
+      bgMusic.volume = musicVolume / 100;
+      localStorage.setItem('bgMusicVolume', musicVolume);
+    });
+
+    /* ── Backup Wallet — Hold to Reveal ── */
+    const holdProgressCircle     = document.getElementById('holdProgressCircle');
+    const holdRevealBtn          = document.getElementById('holdRevealBtn');
+    const backupVerificationArea = document.getElementById('backupVerificationArea');
+    const backupResultArea       = document.getElementById('backupResultArea');
+    const seedPhraseContainer    = document.getElementById('seedPhraseContainer');
+    const legacyKeyContainer     = document.getElementById('legacyKeyContainer');
+    const legacyPrivateKeyInput  = document.getElementById('legacyPrivateKeyInput');
+    const toggleLegacyKeyBtn     = document.getElementById('toggleLegacyKeyBtn');
+    const copyLegacyKeyBtn       = document.getElementById('copyLegacyKeyBtn');
+    const copySeedBtn            = document.getElementById('copySeedBtn');
+    const seedGrid               = document.getElementById('seedGrid');
+
+    const circumference = 2 * Math.PI * 42;
+    holdProgressCircle.style.strokeDasharray  = circumference;
+    holdProgressCircle.style.strokeDashoffset = circumference;
+
+    let holdDuration      = 1500;
+    let holdStartTime     = null;
+    let animationFrameId  = null;
+    let isHolding         = false;
+
+    function startHold(e) {
+      e.preventDefault();
+      if (isHolding) return;
+      isHolding = true;
+      holdStartTime = performance.now();
+      holdRevealBtn.classList.add('holding');
+      tickHold();
+    }
+    function endHold() {
+      if (!isHolding) return;
+      isHolding = false;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      holdRevealBtn.classList.remove('holding');
+      holdProgressCircle.style.strokeDashoffset = circumference;
+    }
+    function tickHold() {
+      if (!isHolding) return;
+      const elapsed  = performance.now() - holdStartTime;
+      const progress = Math.min(elapsed / holdDuration, 1);
+      holdProgressCircle.style.strokeDashoffset = circumference - (progress * circumference);
+      if (progress < 1) { animationFrameId = requestAnimationFrame(tickHold); }
+      else { triggerReveal(); }
+    }
+    async function triggerReveal() {
+      endHold();
+      holdRevealBtn.classList.add('completed');
+      if (navigator.vibrate) { try { navigator.vibrate(50); } catch (e) {} }
+      try {
+        const res = await fetch('/api/wallet/reveal', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) throw new Error('Authentication failed or server error.');
+        const data = await res.json();
+
+        backupVerificationArea.style.display = 'none';
+        backupResultArea.style.display = 'flex';
+
+        if (data.seedPhrase) {
+          seedPhraseContainer.style.display = 'block';
+          legacyKeyContainer.style.display  = 'none';
+          const words = data.seedPhrase.trim().split(/\s+/);
+          seedGrid.innerHTML = '';
+          words.forEach((word, idx) => {
+            const item = document.createElement('div');
+            item.className = 'seed-word-item';
+            item.innerHTML = `<span class="seed-word-num">${idx + 1}</span><span class="seed-word-val">${word}</span>`;
+            seedGrid.appendChild(item);
+          });
+          copySeedBtn.onclick = () => {
+            navigator.clipboard.writeText(data.seedPhrase).then(() => {
+              copySeedBtn.textContent = '✓ Copied';
+              setTimeout(() => { copySeedBtn.textContent = '⧉ Copy All'; }, 1500);
+            });
+          };
+        } else if (data.privateKey) {
+          seedPhraseContainer.style.display = 'none';
+          legacyKeyContainer.style.display  = 'block';
+          legacyPrivateKeyInput.value = data.privateKey;
+          toggleLegacyKeyBtn.onclick = () => {
+            legacyPrivateKeyInput.type = legacyPrivateKeyInput.type === 'password' ? 'text' : 'password';
+            toggleLegacyKeyBtn.textContent = legacyPrivateKeyInput.type === 'password' ? '👁️' : '🙈';
+          };
+          copyLegacyKeyBtn.onclick = () => {
+            navigator.clipboard.writeText(data.privateKey).then(() => {
+              copyLegacyKeyBtn.textContent = '✓';
+              setTimeout(() => { copyLegacyKeyBtn.textContent = '⧉'; }, 1500);
+            });
+          };
+        }
+      } catch (err) {
+        showAlert('Verification failed: ' + err.message);
+        resetBackupSection();
+      }
+    }
+    function resetBackupSection() {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      isHolding = false;
+      holdRevealBtn.classList.remove('holding', 'completed');
+      holdProgressCircle.style.strokeDashoffset = circumference;
+      backupVerificationArea.style.display = 'flex';
+      backupResultArea.style.display       = 'none';
+      seedPhraseContainer.style.display    = 'none';
+      legacyKeyContainer.style.display     = 'none';
+      legacyPrivateKeyInput.value          = '';
+      legacyPrivateKeyInput.type           = 'password';
+      toggleLegacyKeyBtn.textContent       = '👁️';
+    }
+
+    holdRevealBtn.addEventListener('pointerdown',  startHold);
+    holdRevealBtn.addEventListener('pointerup',    endHold);
+    holdRevealBtn.addEventListener('pointerleave', endHold);
+    holdRevealBtn.addEventListener('pointercancel',endHold);
+  </script>
+</body>
+</html>

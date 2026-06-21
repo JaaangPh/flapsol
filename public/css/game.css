@@ -1,5 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --sol-purple: #9945FF;
+  --sol-green:  #14F195;
+}
+
 body {
   overflow: hidden;
   background: #1a1a2e;
@@ -60,25 +65,26 @@ body {
   font-weight: 900;
   color: #fff;
   text-shadow:
-    0 0 14px rgba(255,220,0,.55),
+    0 0 14px rgba(153,69,255,.6),
     0 3px 0 rgba(0,0,0,.65);
   line-height: 1;
 }
 .hud-best .hud-val {
-  color: #ffd700;
+  color: var(--sol-green);
   font-size: 2rem;
+  text-shadow: 0 0 14px rgba(20,241,149,.5), 0 2px 0 rgba(0,0,0,.6);
 }
 
-/* ── User panel ── */
+/* ── User panel (top-left) ── */
 .user-panel {
   position: fixed;
   top: 12px;
-  right: 14px;
+  left: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
   background: rgba(0,0,0,.58);
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgba(153,69,255,.25);
   border-radius: 40px;
   padding: 6px 14px 6px 8px;
   z-index: 50;
@@ -88,7 +94,7 @@ body {
   height: 34px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #ffd700;
+  border: 2px solid var(--sol-purple);
 }
 .user-name {
   color: #fff;
@@ -109,6 +115,25 @@ body {
   transition: background .2s;
 }
 .logout-btn:hover { background: rgba(255,100,100,.18); }
+
+/* ── Dashboard button (inside overlays) ── */
+.dash-btn {
+  display: block;
+  width: 100%;
+  padding: 11px;
+  margin-top: 8px;
+  background: rgba(153,69,255,.08);
+  color: rgba(255,255,255,.75);
+  font-size: .92rem;
+  font-weight: 600;
+  border: 1px solid rgba(153,69,255,.25);
+  border-radius: 14px;
+  text-decoration: none;
+  text-align: center;
+  transition: background .2s;
+  cursor: pointer;
+}
+.dash-btn:hover { background: rgba(153,69,255,.2); color: #fff; }
 
 .fs-btn {
   background: rgba(255,255,255,.1);
@@ -132,15 +157,13 @@ body {
 #tapZone {
   position: fixed;
   inset: 0;
-  z-index: 40;  /* above pipes(20) and bird(30), below overlays(100) */
+  z-index: 40;
   background: transparent;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  pointer-events: none; /* off by default, JS enables during gameplay */
+  pointer-events: none;
 }
-#tapZone.active {
-  pointer-events: auto;
-}
+#tapZone.active { pointer-events: auto; }
 
 /* ── Bird ── */
 .bird {
@@ -155,7 +178,7 @@ body {
   pointer-events: none;
 }
 
-/* ── Pipes (inline styles set in JS for position/size) ── */
+/* ── Pipes ── */
 .pipe {
   position: fixed;
   z-index: 20;
@@ -178,7 +201,7 @@ body {
 }
 .overlay-card {
   background: rgba(8, 8, 26, 0.94);
-  border: 1px solid rgba(255,255,255,.13);
+  border: 1px solid rgba(153,69,255,.2);
   border-radius: 24px;
   padding: 38px 34px 30px;
   text-align: center;
@@ -196,7 +219,7 @@ body {
   width: 80px;
   margin-bottom: 12px;
   animation: hop .75s ease-in-out infinite alternate;
-  filter: drop-shadow(0 4px 10px rgba(255,200,0,.4));
+  filter: drop-shadow(0 4px 12px rgba(153,69,255,.5));
 }
 @keyframes hop {
   from { transform: translateY(0); }
@@ -258,14 +281,14 @@ kbd {
   font-size: .74rem;
 }
 .bird-opt:hover {
-  border-color: #ffd700;
-  background: rgba(255,215,0,.08);
+  border-color: var(--sol-purple);
+  background: rgba(153,69,255,.1);
   transform: translateY(-2px);
 }
 .bird-opt.selected {
-  border-color: #ffd700;
-  background: rgba(255,215,0,.15);
-  box-shadow: 0 0 14px rgba(255,215,0,.28);
+  border-color: var(--sol-purple);
+  background: rgba(153,69,255,.18);
+  box-shadow: 0 0 16px rgba(153,69,255,.35);
 }
 
 /* ── Buttons ── */
@@ -273,8 +296,8 @@ kbd {
   display: block;
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #ffd700 0%, #ff9900 100%);
-  color: #1a1a2e;
+  background: linear-gradient(135deg, var(--sol-purple) 0%, var(--sol-green) 100%);
+  color: #fff;
   font-size: 1.05rem;
   font-weight: 800;
   border: none;
@@ -282,9 +305,9 @@ kbd {
   cursor: pointer;
   margin-bottom: 10px;
   transition: transform .15s, filter .15s;
-  box-shadow: 0 4px 20px rgba(255,175,0,.38);
+  box-shadow: 0 4px 22px rgba(153,69,255,.4);
 }
-.play-btn:hover  { transform: translateY(-2px); filter: brightness(1.08); }
+.play-btn:hover  { transform: translateY(-2px); filter: brightness(1.1); }
 .play-btn:active { transform: translateY(0);    filter: brightness(.95); }
 
 .lb-btn {
@@ -316,7 +339,7 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 .go-score strong { color: #fff; font-size: 1.3rem; }
-.go-best  strong { color: #ffd700; font-size: 1.3rem; }
+.go-best  strong { color: var(--sol-green); font-size: 1.3rem; }
 
 /* ── Leaderboard modal ── */
 .modal-bg {
@@ -331,7 +354,7 @@ kbd {
 }
 .modal {
   background: rgba(8,8,26,.96);
-  border: 1px solid rgba(255,255,255,.13);
+  border: 1px solid rgba(153,69,255,.2);
   border-radius: 22px;
   padding: 30px 26px;
   width: 92%;
@@ -341,7 +364,7 @@ kbd {
   animation: cardIn .25s ease-out;
 }
 .modal h3 {
-  color: #ffd700;
+  color: var(--sol-green);
   font-size: 1.4rem;
   text-align: center;
   margin-bottom: 18px;
@@ -367,9 +390,9 @@ kbd {
   vertical-align: middle;
 }
 /* Podium colours */
-.lb-table tr:first-child  td { color: #ffd700; font-weight: 700; }
-.lb-table tr:nth-child(2) td { color: #c0c0c0; }
-.lb-table tr:nth-child(3) td { color: #cd7f32; }
+.lb-table tr:first-child  td { color: var(--sol-green); font-weight: 700; }
+.lb-table tr:nth-child(2) td { color: var(--sol-purple); }
+.lb-table tr:nth-child(3) td { color: #c0c0c0; }
 
 .lb-avatar {
   width: 28px;
@@ -403,23 +426,84 @@ kbd {
   transform: translateX(-50%);
   font-size: 2.6rem;
   font-weight: 900;
-  color: #ffd700;
-  text-shadow: 0 0 14px rgba(255,200,0,.65);
+  color: var(--sol-green);
+  text-shadow: 0 0 16px rgba(20,241,149,.7);
   z-index: 200;
   pointer-events: none;
   animation: scorePop .65s ease-out forwards;
 }
 @keyframes scorePop {
-  0%   { transform: translateX(-50%) scale(1);              opacity: 1; }
-  100% { transform: translateX(-50%) scale(1.9) translateY(-36px); opacity: 0; }
+  0%   { transform: translateX(-50%) scale(1);                       opacity: 1; }
+  100% { transform: translateX(-50%) scale(1.9) translateY(-36px);   opacity: 0; }
 }
 
 /* ── Mobile ── */
 @media (max-width: 600px) {
-  .hud-val         { font-size: 2.2rem; }
+  .hud-val           { font-size: 2.2rem; }
   .hud-best .hud-val { font-size: 1.7rem; }
-  .bird            { width: 68px; height: 54px; }
-  .overlay-card    { padding: 28px 18px 22px; }
-  .bird-opt img    { width: 42px; height: 34px; }
-  .user-name       { max-width: 80px; }
+  .bird              { width: 68px; height: 54px; }
+  .overlay-card      { padding: 28px 18px 22px; }
+  .bird-opt img      { width: 42px; height: 34px; }
+  .user-name         { max-width: 80px; }
+}
+
+/* ── Game Over EXP Container & Animation ── */
+.go-exp-container {
+  margin: 18px 0;
+  padding: 14px 16px;
+  background: rgba(153, 69, 255, 0.05);
+  border: 1px solid rgba(153, 69, 255, 0.22);
+  border-radius: 16px;
+  text-align: left;
+}
+.go-exp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.go-exp-level-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.go-exp-icon {
+  width: 16px;
+  height: 16px;
+}
+.go-exp-gain {
+  color: #ffeb3b;
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+.go-exp-bar-bg {
+  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.go-exp-bar-fill {
+  background: linear-gradient(90deg, var(--sol-purple) 0%, var(--sol-green) 100%);
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+}
+.go-levelup-text {
+  margin-top: 8px;
+  color: var(--sol-green);
+  font-weight: 900;
+  font-size: 0.95rem;
+  text-align: center;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(20, 241, 149, 0.6);
+  animation: levelUpPulse 0.8s infinite alternate ease-in-out;
+}
+@keyframes levelUpPulse {
+  from { transform: scale(0.96); opacity: 0.8; }
+  to   { transform: scale(1.04); opacity: 1; }
 }

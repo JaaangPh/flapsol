@@ -1,10 +1,11 @@
 /* =========================================================
-   SolClash – Flappy Bird  |  game.js
+   SolClash – Free To Play  |  freetoplay.js
+   Same as game.js but: no score saved, no leaderboard,
+   game-over redirects back to dashboard.
    ========================================================= */
 
 'use strict';
 
-// ── Assets ───────────────────────────────────────────────────────────────────
 const BIRDS = {
   'bird-1': { normal: 'images/birds/bird-1/Bird-2.png', flap: 'images/birds/bird-1/Bird.png' },
   'bird-2': { normal: 'images/birds/bird-2/Bird-2.png', flap: 'images/birds/bird-2/Bird.png' },
@@ -31,23 +32,16 @@ const playBtn        = document.getElementById('playBtn');
 const restartBtn     = document.getElementById('restartBtn');
 const birdOptions    = document.getElementById('birdOptions');
 const previewBird    = document.getElementById('previewBird');
-const lbModal        = document.getElementById('lbModal');
-const lbBody         = document.getElementById('lbBody');
 const birdWrap       = document.getElementById('birdWrap');
 const birdNormal     = document.getElementById('birdNormal');
 const birdFlap       = document.getElementById('birdFlap');
 const tapZone        = document.getElementById('tapZone');
 const fsBtn          = document.getElementById('fsBtn');
 
-document.getElementById('lbToggleBtn')?.addEventListener('click', openLeaderboard);
-document.getElementById('lbToggleBtn2')?.addEventListener('click', openLeaderboard);
-document.getElementById('closeLb')?.addEventListener('click', () => { lbModal.style.display = 'none'; });
-
 // ── State ─────────────────────────────────────────────────────────────────────
-let user         = null;
 let selectedBird = 'bird-1';
 let score        = 0;
-let highScore    = 0;
+let bestScore    = 0;
 let gameState    = 'idle'; // idle | ready | playing | dead
 let birdY        = 0;
 let birdDy       = 0;
@@ -56,8 +50,7 @@ let frameCount   = 0;
 let animId       = null;
 let flapFlag     = false;
 let flapFrames   = 0;
-let floatFrame   = 0; // for idle float animation
-let gameStartTime = null;
+let floatFrame   = 0;
 
 const GRAVITY           = 0.44;
 const FLAP_POWER        = -8.2;
@@ -132,23 +125,20 @@ async function init() {
     gameBg.style.animation          = 'bgscroll 22s linear infinite';
   }
 
+  // Load user info for the HUD (display only — nothing is saved)
   try {
     const res  = await fetch('/auth/me');
     const data = await res.json();
     if (!data.loggedIn) { window.location.href = '/'; return; }
-
-    user         = data;
-    selectedBird = data.selectedBird || 'bird-1';
-    highScore    = data.highScore    || 0;
-
     userAvatarEl.src       = data.avatar || 'images/birds/Bird.png';
-    // Show truncated wallet: CHqN9X4r....yEZb
+    // Show truncated wallet: CHqN9X4r….yEZb
     const w = data.walletAddress || data.walletPublicKey || '';
     userNameEl.textContent = w.length > 12
       ? w.slice(0, 8) + '….' + w.slice(-4)
       : (data.name || 'Player');
-    bestValEl.textContent  = highScore;
     userAvatarEl.onerror   = () => { userAvatarEl.src = 'images/birds/Bird.png'; };
+    // Use the player's selected bird as default
+    selectedBird = data.selectedBird || 'bird-1';
   } catch {
     window.location.href = '/';
     return;
@@ -158,12 +148,12 @@ async function init() {
     opt.addEventListener('click', () => selectBird(opt.dataset.bird));
   });
 
-  selectBird(selectedBird, false);
+  selectBird(selectedBird);
   showStart();
 }
 
-// ── Bird selection ────────────────────────────────────────────────────────────
-function selectBird(id, save = true) {
+// ── Bird selection — no API call, session only ────────────────────────────────
+function selectBird(id) {
   selectedBird = id;
   birdOptions.querySelectorAll('.bird-opt').forEach(opt => {
     opt.classList.toggle('selected', opt.dataset.bird === id);
@@ -171,17 +161,9 @@ function selectBird(id, save = true) {
   previewBird.src = BIRDS[id].flap;
   setBirdImages(id);
   showFlapImg(false);
-
-  if (save && user) {
-    fetch('/api/bird', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bird: id }),
-    }).catch(() => {});
-  }
 }
 
-// ── UI helpers ────────────────────────────────────────────────────────────────
+// ── UI ────────────────────────────────────────────────────────────────────────
 function showStart() {
   startScreen.style.display    = 'flex';
   gameOverScreen.style.display = 'none';
@@ -192,7 +174,7 @@ function showGameOver() {
   gameOverScreen.style.display = 'flex';
   startScreen.style.display    = 'none';
   finalScoreEl.textContent     = score;
-  finalBestEl.textContent      = highScore;
+  finalBestEl.textContent      = bestScore;
 }
 
 // ── Game lifecycle ────────────────────────────────────────────────────────────
@@ -205,10 +187,6 @@ function startGame() {
   flapFrames = 0;
   floatFrame = 0;
   scoreValEl.textContent = '0';
-  gameStartTime = null;
-
-  const goExpContainer = document.getElementById('goExpContainer');
-  if (goExpContainer) goExpContainer.style.display = 'none';
 
   birdY  = window.innerHeight * 0.40;
   birdDy = 0;
@@ -223,7 +201,7 @@ function startGame() {
   startScreen.style.display    = 'none';
   gameOverScreen.style.display = 'none';
 
-  // Enter 'ready' — bird floats, pipes frozen, waiting for first flap
+  // Enter 'ready' — bird floats, no pipes, waiting for first flap
   gameState = 'ready';
   tapZone.classList.add('active');
 
@@ -231,92 +209,17 @@ function startGame() {
   animId = requestAnimationFrame(gameLoop);
 }
 
-async function endGame() {
+function endGame() {
   gameState = 'dead';
   tapZone.classList.remove('active');
   playSound(sndDie);
   birdWrap.style.display = 'none';
   cancelAnimationFrame(animId);
 
-  if (score > highScore) {
-    highScore = score;
-    bestValEl.textContent = highScore;
-  }
-
-  // Calculate play duration in seconds
-  const playDuration = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 0;
-
-  if (user) {
-    try {
-      const res  = await fetch('/api/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, duration: playDuration }),
-      });
-      const data = await res.json();
-      console.log('[score/exp save]', res.status, data);
-      if (data.highScore !== undefined && data.highScore > highScore) {
-        highScore = data.highScore;
-        bestValEl.textContent = highScore;
-      }
-
-      // Display and animate EXP progress
-      if (data.expGained !== undefined) {
-        const goExpContainer = document.getElementById('goExpContainer');
-        const goLevelLabel   = document.getElementById('goLevelLabel');
-        const goExpVal       = document.getElementById('goExpVal');
-        const goExpBar       = document.getElementById('goExpBar');
-        const goLevelUpText  = document.getElementById('goLevelUpText');
-
-        if (goExpContainer) {
-          goExpContainer.style.display = 'block';
-          goLevelLabel.textContent = `Level ${data.level ?? 0}`;
-          goExpVal.textContent     = `+${data.expGained} EXP`;
-
-          const currentExp = data.currentExp ?? 0;
-          const requiredExp = data.requiredExp ?? 200;
-
-          // Estimate starting progress
-          let prevExp = currentExp - data.expGained;
-          let prevRequired = requiredExp;
-          if (data.leveledUp) {
-            const prevLevel = (data.level ?? 1) - 1;
-            prevRequired = (prevLevel + 1) * 200;
-            prevExp = prevRequired - (data.expGained - currentExp);
-          }
-
-          const startPercent = Math.max(0, Math.min(100, Math.round(prevExp / prevRequired * 100)));
-          const endPercent   = Math.max(0, Math.min(100, Math.round(currentExp / requiredExp * 100)));
-
-          // Reset transitions to start animation cleanly
-          goExpBar.style.transition = 'none';
-          goExpBar.style.width      = startPercent + '%';
-
-          // Force browser reflow to apply width immediately
-          void goExpBar.offsetHeight;
-
-          // Apply standard easing and transition to final target
-          goExpBar.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-          if (data.leveledUp) {
-            // Level-up transition: fill bar completely, then jump to 0% and fill up to the new level progress
-            goExpBar.style.width = '100%';
-            if (goLevelUpText) goLevelUpText.style.display = 'block';
-            setTimeout(() => {
-              goExpBar.style.transition = 'none';
-              goExpBar.style.width      = '0%';
-              void goExpBar.offsetHeight;
-              goExpBar.style.transition = 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-              goExpBar.style.width      = endPercent + '%';
-            }, 800);
-          } else {
-            goExpBar.style.width = endPercent + '%';
-            if (goLevelUpText) goLevelUpText.style.display = 'none';
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[score/exp save error]', err);
-    }
+  // Update session-only best — nothing is sent to the server
+  if (score > bestScore) {
+    bestScore = score;
+    bestValEl.textContent = bestScore;
   }
 
   showGameOver();
@@ -335,11 +238,10 @@ function gameLoop() {
     showFlapImg(floatFrame % 20 < 10);
 
     if (flapFlag) {
-      flapFlag  = false;
-      gameState = 'playing'; // first flap starts the game
-      birdDy    = FLAP_POWER;
+      flapFlag   = false;
+      gameState  = 'playing';
+      birdDy     = FLAP_POWER;
       flapFrames = FLAP_HOLD;
-      gameStartTime = Date.now(); // track start of gameplay
     }
 
     animId = requestAnimationFrame(gameLoop);
@@ -449,36 +351,6 @@ function showScorePop() {
   setTimeout(() => el.remove(), 650);
 }
 
-// ── Leaderboard ───────────────────────────────────────────────────────────────
-async function openLeaderboard() {
-  lbModal.style.display = 'flex';
-  lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">Loading…</td></tr>';
-  try {
-    const res  = await fetch('/api/leaderboard');
-    const data = await res.json();
-    if (!data.length) {
-      lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">No scores yet</td></tr>';
-      return;
-    }
-    lbBody.innerHTML = data.map(row => `
-      <tr>
-        <td>${row.rank}</td>
-        <td>
-          ${row.avatar ? `<img class="lb-avatar" src="${escHtml(row.avatar)}" alt="" onerror="this.style.display='none'">` : ''}
-          ${escHtml(row.name)}
-        </td>
-        <td>${row.highScore}</td>
-        <td>${escHtml(row.tier || '')}</td>
-      </tr>`).join('');
-  } catch {
-    lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#f66;padding:20px">Failed to load</td></tr>';
-  }
-}
-
-function escHtml(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 // ── Controls ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'ArrowUp' || e.key === ' ') {
@@ -514,21 +386,11 @@ function exitFullscreen() {
 fsBtn?.addEventListener('click', () => {
   const isFs = document.fullscreenElement || document.webkitFullscreenElement
              || document.mozFullScreenElement;
-  if (isFs) { exitFullscreen(); } else { requestFullscreen(); }
+  isFs ? exitFullscreen() : requestFullscreen();
 });
 
-function onFullscreenChange() {
-  if (fsBtn) {
-    const isFs = document.fullscreenElement || document.webkitFullscreenElement
-               || document.mozFullScreenElement;
-    fsBtn.textContent = isFs ? '✕' : '⛶';
-  }
-  onResize();
-}
-
-document.addEventListener('fullscreenchange',       onFullscreenChange);
-document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-document.addEventListener('mozfullscreenchange',    onFullscreenChange);
+document.addEventListener('fullscreenchange',       onResize);
+document.addEventListener('webkitfullscreenchange', onResize);
 
 playBtn.addEventListener('click',    () => { requestFullscreen(); startGame(); });
 restartBtn.addEventListener('click', startGame);

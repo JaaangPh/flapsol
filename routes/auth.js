@@ -1,57 +1,269 @@
-const express  = require('express');
-const passport = require('passport');
-const router   = express.Router();
+const express    = require('express');
+const passport   = require('passport');
+const router     = express.Router();
+const { decrypt }      = require('../utils/wallet');
+const { getFirestore } = require('../config/firebase');
+const crypto           = require('crypto');
 
 // ── Google ────────────────────────────────────────────────────────────────────
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/?error=google_failed' }),
-  (_req, res) => res.redirect('/game')
+  passport.authenticate('google', { failureRedirect: '/login?error=google_failed' }),
+  (_req, res) => res.redirect('/dashboard')
 );
 
 // ── GitHub ────────────────────────────────────────────────────────────────────
 router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 router.get('/github/callback',
-  passport.authenticate('github', { failureRedirect: '/?error=github_failed' }),
-  (_req, res) => res.redirect('/game')
+  passport.authenticate('github', { failureRedirect: '/login?error=github_failed' }),
+  (_req, res) => res.redirect('/dashboard')
 );
 
 // ── Discord ───────────────────────────────────────────────────────────────────
 router.get('/discord', passport.authenticate('discord'));
 router.get('/discord/callback',
-  passport.authenticate('discord', { failureRedirect: '/?error=discord_failed' }),
-  (_req, res) => res.redirect('/game')
+  passport.authenticate('discord', { failureRedirect: '/login?error=discord_failed' }),
+  (_req, res) => res.redirect('/dashboard')
 );
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 router.get('/logout', (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
-    // cookie-session: clear by setting to null
     req.session = null;
-    res.redirect('/');
+    res.redirect('/login');
   });
+});
+
+// ── Cross-app SSO: redeem a one-time handoff token ────────────────────────────
+//
+// Flow:
+//   1. The OTHER app calls POST /auth/issue-token (server-to-server)
+//      passing the user's googleId (the user identifier used in the other app).
+//   2. SolClash stores a 60s token in Firestore `sso-tokens`.
+//   3. The other app redirects the browser to /auth/sso?token=xxx.
+//   4. This endpoint redeems the token, finds the matching SolClash user
+//      (by matching oauthProviders or email), logs them in, deletes the token.
+//
+// User matching priority:
+//   1. Direct Firestore doc ID match (if same project & same doc IDs)
+//   2. Match by googleId / discordId / githubId fields
+//   3. Match by email
+
+router.get('/sso', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/login?error=sso_missing');
+
+  try {
+    const db  = getFirestore();
+    const ref = db.collection('sso-tokens').doc(token);
+    const snap = await ref.get();
+
+    if (!snap.exists) return res.redirect('/login?error=sso_invalid');
+
+    const { uid, email, expiresAt } = snap.data();
+
+    // One-time use — delete immediately regardless of outcome
+    await ref.delete();
+
+    if (Date.now() > expiresAt) return res.redirect('/login?error=sso_expired');
+
+    const usersRef = db.collection('users');
+    let userDoc = null;
+
+    // 1. Try direct doc ID (works if both apps share same Firestore doc IDs)
+    if (uid) {
+      const direct = await usersRef.doc(uid).get();
+      if (direct.exists) userDoc = direct;
+    }
+
+    // 2. Try matching by googleId / discordId / githubId field
+    if (!userDoc && uid) {
+      for (const field of ['googleId', 'discordId', 'githubId', 'providerId']) {
+        const q = await usersRef.where(field, '==', uid).limit(1).get();
+        if (!q.empty) { userDoc = q.docs[0]; break; }
+      }
+    }
+
+    // 3. Try matching by oauthProviders.*.id across all providers
+    if (!userDoc && uid) {
+      for (const provider of ['google', 'github', 'discord']) {
+        const q = await usersRef
+          .where(`oauthProviders.${provider}.id`, '==', uid)
+          .limit(1).get();
+        if (!q.empty) { userDoc = q.docs[0]; break; }
+      }
+    }
+
+    // 4. Fall back to email match
+    if (!userDoc && email) {
+      const q = await usersRef.where('email', '==', email).limit(1).get();
+      if (!q.empty) userDoc = q.docs[0];
+    }
+
+    if (!userDoc) return res.redirect('/login?error=sso_no_user');
+
+    const docData = userDoc.data();
+
+    // Backfill any SolClash-specific fields that may be missing for users
+    // whose accounts were created by the other app (no highScore, selectedBird, etc.)
+    const missing = {};
+    if (docData.highScore      === undefined) missing.highScore      = 0;
+    if (docData.selectedBird   === undefined) missing.selectedBird   = 'bird-1';
+    if (docData.rank           === undefined) missing.rank           = 'Bronze';
+    if (docData.badge          === undefined) missing.badge          = 'images/badges/bronze.png';
+    if (docData.level          === undefined) missing.level          = 0;
+    if (docData.currentExp     === undefined) missing.currentExp     = 0;
+    if (docData.requiredExp    === undefined) missing.requiredExp    = 200;
+    if (docData.totalBP        === undefined) missing.totalBP        = 0;
+    if (docData.goldBalance    === undefined) {
+      missing.goldBalance = docData.clashBalance !== undefined ? docData.clashBalance : 0;
+    }
+    if (docData.walletBalance  === undefined) missing.walletBalance  = 0;
+
+    if (Object.keys(missing).length > 0) {
+      await userDoc.ref.update(missing);
+      Object.assign(docData, missing);
+    }
+
+    const user = { uid: userDoc.id, ...docData };
+
+    await new Promise((resolve, reject) => {
+      req.login(user, err => err ? reject(err) : resolve());
+    });
+
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error('[/auth/sso]', err);
+    res.redirect('/login?error=sso_failed');
+  }
+});
+
+// ── Cross-app SSO: issue a one-time handoff token ─────────────────────────────
+//
+// Called by the OTHER app's server (server-to-server) with a shared secret.
+//
+// Request body:
+//   { "uid": "<user's googleId from other app>", "email": "<user email>", "secret": "..." }
+//
+// Both uid and email are stored so /auth/sso can find the user via multiple
+// lookup strategies (doc ID → field match → email fallback).
+
+router.post('/issue-token', async (req, res) => {
+  // Only the companion app may call this — enforce strict origin check here
+  const companionUrl = (process.env.COMPANION_APP_URL || '').replace(/\/$/, '');
+  const origin = req.headers.origin || '';
+  if (companionUrl && origin && origin !== companionUrl) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { uid, email, secret } = req.body;
+
+  if ((!uid && !email) || secret !== process.env.CROSS_APP_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const db    = getFirestore();
+    const token = crypto.randomBytes(32).toString('hex');
+    const TTL   = 60 * 1000; // 60 seconds — one browser redirect only
+
+    await db.collection('sso-tokens').doc(token).set({
+      uid:       uid   || null,
+      email:     email || null,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + TTL,
+    });
+
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+    res.json({ token, url: `${baseUrl}/auth/sso?token=${token}` });
+  } catch (err) {
+    console.error('[/auth/issue-token]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── /auth/companion-config ────────────────────────────────────────────────────
+// Returns the companion app's URL to the login page so it can attempt auto-SSO.
+// Keeping it server-side means the URL lives in .env, not hardcoded in HTML.
+router.get('/companion-config', (_req, res) => {
+  res.json({ url: process.env.COMPANION_APP_URL || null });
 });
 
 // ── /auth/me ──────────────────────────────────────────────────────────────────
 router.get('/me', (req, res) => {
   if (!req.isAuthenticated()) return res.json({ loggedIn: false });
 
-  const { uid, name, email, avatar, selectedBird, highScore,
-          clashBalance, rank, level, authProvider } = req.user;
+  const {
+    uid, name, email, avatar, authProvider,
+    selectedBird, highScore,
+    goldBalance, clashBalance, walletBalance,
+    rank, badge, level,
+    currentExp, requiredExp,
+    totalBP, walletPublicKey,
+  } = req.user;
+
+  // Decrypt wallet public key server-side — never expose private key
+  // Falls back to treating walletPublicKey as plain if decryption fails
+  // (SSO users from the companion app store the key unencrypted)
+  let walletAddress = null;
+  if (walletPublicKey) {
+    try { walletAddress = decrypt(walletPublicKey); } catch {
+      // If it doesn't look like an iv:hex string, it's already a plain key
+      if (!walletPublicKey.includes(':')) walletAddress = walletPublicKey;
+    }
+  }
+
+  const gold = goldBalance !== undefined ? goldBalance : (clashBalance !== undefined ? clashBalance : 0);
 
   res.json({
-    loggedIn:     true,
+    loggedIn:      true,
     uid,
     name,
     email,
     avatar,
-    selectedBird: selectedBird || 'bird-1',
-    highScore:    highScore    || 0,
-    clashBalance: clashBalance || 0,
-    rank:         rank         || 'Bronze',
-    level:        level        || 0,
-    authProvider: authProvider || 'unknown',
+    authProvider:  authProvider  || 'unknown',
+    selectedBird:  selectedBird  || 'bird-1',
+    highScore:     highScore     || 0,
+    goldBalance:   gold,
+    clashBalance:  gold,
+    walletBalance: walletBalance || 0,
+    rank:          rank          || 'Bronze',
+    badge:         badge         || 'images/badges/bronze.png',
+    level:         level         || 0,
+    currentExp:    currentExp    || 0,
+    requiredExp:   requiredExp   || 200,
+    totalBP:       totalBP       || 0,
+    walletAddress,
+  });
+});
+
+// ── Mock login for testing ───────────────────────────────────────────────────
+router.get('/mock', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).send('Forbidden in production');
+  }
+  const mockUser = {
+    uid: 'mock-uid-12345',
+    name: 'test.clash',
+    email: 'test@clash.com',
+    avatar: 'images/birds/bird-1/Bird.png',
+    authProvider: 'google',
+    selectedBird: 'bird-1',
+    highScore: 21,
+    goldBalance: 0,
+    walletBalance: 0,
+    rank: 'Bronze',
+    badge: 'images/badges/bronze.png',
+    level: 0,
+    currentExp: 0,
+    requiredExp: 200,
+    totalBP: 0,
+    walletPublicKey: 'CfGSy5ZvUoVL53kJyjao4yQzVBYsGnsFC9z1dcwbpwzB',
+  };
+  req.login(mockUser, (err) => {
+    if (err) return res.status(500).send('Mock login failed');
+    res.redirect('/dashboard');
   });
 });
 

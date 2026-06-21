@@ -14,17 +14,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "bcryptjs": "^3.0.3",
+    "bip39": "^3.1.0",
+    "bs58": "^6.0.0",
     "cookie-session": "^2.1.1",
     "cors": "^2.8.6",
     "dotenv": "16.4.5",
+    "ed25519-hd-key": "^2.0.0",
     "express": "^5.2.1",
-    "express-session": "^1.19.0",
     "firebase-admin": "^14.0.0",
     "helmet": "^8.2.0",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
     "passport-github2": "^0.1.12",
-    "passport-google-oauth20": "^2.0.0",
-    "uuid": "^14.0.0"
+    "passport-google-oauth20": "^2.0.0"
   }
 }

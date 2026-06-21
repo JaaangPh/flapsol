@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolClash – Login</title>
+  <link rel="icon" href="images/favicon.ico" />
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <nav id="mainNav">
+    <a href="/" class="nav-logo">
+      <img src="images/logo.png" alt="SolClash" />
+      <span>SolClash</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="/#features" class="nav-link">Features</a>
+      <a href="/#how" class="nav-link">How it works</a>
+      <a href="https://whitepaper.sol-clash.xyz" class="nav-link" target="_blank" rel="noopener">Whitepaper</a>
+      <a href="/login" class="nav-cta">Play Now</a>
+    </div>
+    <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- Mobile drawer -->
+  <div class="nav-drawer" id="navDrawer">
+    <a href="/#features" class="drawer-link">Features</a>
+    <a href="/#how" class="drawer-link">How it works</a>
+    <a href="https://whitepaper.sol-clash.xyz" class="drawer-link" target="_blank" rel="noopener">Whitepaper</a>
+    <a href="/login" class="drawer-cta">▶ Play Now</a>
+  </div>
+
+  <div class="bg-layer"></div>
+  <div class="cloud-layer"></div>
+
+  <!-- Decorative flying birds — two frames each for wing-flap animation -->
+  <div class="deco-bird b1">
+    <img class="frame-a" src="images/birds/bird-1/Bird.png"   alt="" />
+    <img class="frame-b" src="images/birds/bird-1/Bird-2.png" alt="" />
+  </div>
+  <div class="deco-bird b2">
+    <img class="frame-a" src="images/birds/bird-2/Bird.png"   alt="" />
+    <img class="frame-b" src="images/birds/bird-2/Bird-2.png" alt="" />
+  </div>
+  <div class="deco-bird b3">
+    <img class="frame-a" src="images/birds/bird-3/bird21.png" alt="" />
+    <img class="frame-b" src="images/birds/bird-3/bird22.png" alt="" />
+  </div>
+
+  <!-- Login card -->
+  <div class="login-card">
+    <div class="logo-wrap">
+      <img src="images/logo.png" alt="logo" class="logo-bird" />
+      <h1>SolClash</h1>
+      <p class="tagline">Flappy Bird – Login to Play &amp; Compete</p>
+    </div>
+
+    <!-- Error banner (filled by JS if ?error= present) -->
+    <div id="error-msg" class="error-msg" style="display:none"></div>
+
+    <div class="oauth-buttons">
+      <!-- Google -->
+      <a href="/auth/google" class="btn btn-google">
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path fill="#EA4335" d="M5.27 9.76A7.08 7.08 0 0 1 12 4.9c1.76 0 3.35.65 4.57 1.7l3.4-3.4A11.95 11.95 0 0 0 12 .96a12 12 0 0 0-10.74 6.64l4.01 3.16Z"/>
+          <path fill="#34A853" d="M16.04 18.01A7.07 7.07 0 0 1 12 19.1a7.08 7.08 0 0 1-6.72-4.84L1.26 17.4A12 12 0 0 0 12 23.04c3.06 0 5.98-1.1 8.18-3.09l-4.14-2.94Z"/>
+          <path fill="#4A90D9" d="M20.18 20a11.9 11.9 0 0 0 3.78-8.97c0-.73-.08-1.49-.2-2.19H12v4.62h6.47a5.52 5.52 0 0 1-2.43 3.56l4.14 2.98Z"/>
+          <path fill="#FBBC05" d="M5.28 14.26A7.1 7.1 0 0 1 4.9 12c0-.79.13-1.55.37-2.25L1.26 6.6A11.96 11.96 0 0 0 0 12c0 1.92.45 3.74 1.26 5.35l4.02-3.09Z"/>
+        </svg>
+        Continue with Google
+      </a>
+
+      <!-- GitHub -->
+      <a href="/auth/github" class="btn btn-github">
+        <svg viewBox="0 0 24 24" class="btn-icon" fill="currentColor">
+          <path d="M12 .3A12 12 0 0 0 0 12.3c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.03c-3.34.72-4.04-1.61-4.04-1.61-.55-1.4-1.33-1.77-1.33-1.77-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4 11.5 11.5 0 0 1 3 .4c2.28-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 24 12.3 12 12 0 0 0 12 .3Z"/>
+        </svg>
+        Continue with GitHub
+      </a>
+
+      <!-- Discord -->
+      <a href="/auth/discord" class="btn btn-discord">
+        <svg viewBox="0 0 24 24" class="btn-icon" fill="currentColor">
+          <path d="M20.32 4.37A19.8 19.8 0 0 0 15.43 3c-.22.4-.47.93-.64 1.35a18.25 18.25 0 0 0-5.58 0A13.72 13.72 0 0 0 8.56 3a19.73 19.73 0 0 0-4.89 1.37C.53 8.89-.32 13.3.1 17.65a19.9 19.9 0 0 0 6.07 3.08c.49-.67.93-1.38 1.3-2.13a12.97 12.97 0 0 1-2.05-1 16.06 16.06 0 0 0 .5-.4 14.18 14.18 0 0 0 12.14 0l.5.4a12.82 12.82 0 0 1-2.06 1c.37.75.8 1.46 1.3 2.13a19.83 19.83 0 0 0 6.07-3.09c.5-5.05-.84-9.43-3.55-13.27ZM8.02 15.07c-1.2 0-2.19-1.12-2.19-2.5s.96-2.5 2.19-2.5c1.22 0 2.21 1.12 2.19 2.5 0 1.38-.97 2.5-2.19 2.5Zm8.09 0c-1.2 0-2.19-1.12-2.19-2.5s.97-2.5 2.19-2.5c1.23 0 2.21 1.12 2.19 2.5 0 1.38-.96 2.5-2.19 2.5Z"/>
+        </svg>
+        Continue with Discord
+      </a>
+    </div>
+
+    <p class="footer-note">By logging in you agree to our <a href="/terms" class="policy-link">Terms &amp; Conditions</a> and <a href="/privacy" class="policy-link">Privacy Policy</a></p>
+    <a href="/" class="back-home">← Back to Home</a>
+  </div>
+
+  <script>
+    // ── Hide login card until session check completes (prevents flash) ────────
+    document.querySelector('.login-card').style.visibility = 'hidden';
+
+    // ── Auto-SSO: parallel check — own session + companion app ───────────────
+    (async () => {
+      try {
+        const [meRes, cfgRes] = await Promise.all([
+          fetch('/auth/me').then(r => r.json()).catch(() => ({ loggedIn: false })),
+          fetch('/auth/companion-config').then(r => r.json()).catch(() => ({ url: null })),
+        ]);
+
+        if (meRes.loggedIn) { location.replace('/dashboard'); return; }
+
+        if (cfgRes.url) {
+          try {
+            const resp = await fetch(`${cfgRes.url}/api/sso-handoff`, { credentials: 'include' });
+            if (resp.ok) {
+              const { ssoUrl } = await resp.json();
+              if (ssoUrl) { location.replace(ssoUrl); return; }
+            }
+          } catch {}
+        }
+      } catch {}
+
+      document.querySelector('.login-card').style.visibility = 'visible';
+    })();
+
+    // ── Hamburger menu ────────────────────────────────────────────────────────
+    const hamburger = document.getElementById('hamburger');
+    const navDrawer = document.getElementById('navDrawer');
+    hamburger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hamburger.classList.toggle('open');
+      navDrawer.classList.toggle('open');
+    });
+    function closeDrawer() {
+      hamburger.classList.remove('open');
+      navDrawer.classList.remove('open');
+    }
+    document.addEventListener('click', (e) => {
+      if (!hamburger.contains(e.target) && !navDrawer.contains(e.target)) closeDrawer();
+    });
+    // Close on drawer link click
+    navDrawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
+
+    // ── Error query param ─────────────────────────────────────────────────────
+    const params = new URLSearchParams(location.search);
+    const err = params.get('error');
+    if (err) {
+      const el = document.getElementById('error-msg');
+      const providerMap = { google_failed: 'Google', github_failed: 'GitHub', discord_failed: 'Discord' };
+      el.textContent = `Login failed via ${providerMap[err] || err}. Please try again.`;
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

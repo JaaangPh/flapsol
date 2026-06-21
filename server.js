@@ -12,22 +12,31 @@ const PORT   = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
 // ── Security ──────────────────────────────────────────────────────────────────
+const COMPANION_URL = process.env.COMPANION_APP_URL || '';
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'"],
+      scriptSrc:  ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
       styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
       imgSrc:     ["'self'", 'data:', 'https:', 'http:'],
       mediaSrc:   ["'self'"],
-      connectSrc: ["'self'"],
+      // Allow fetch() to the companion app for cross-app SSO
+      connectSrc: ["'self'", ...(COMPANION_URL ? [COMPANION_URL] : [])],
     },
   },
 }));
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// SolClash's own pages make same-origin requests — no CORS needed for those.
+// The only cross-origin caller is the companion app hitting /auth/issue-token.
+// Apply a permissive policy globally (no credentials needed for most routes)
+// and a strict credential-aware policy only on the SSO endpoint.
+app.use(cors({ origin: true, credentials: false }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 // Trust Vercel proxy for secure cookies
 if (isProd) app.set('trust proxy', 1);
@@ -60,32 +69,75 @@ app.use(passport.session());
 require('./config/passport')(passport);
 
 // ── Static files ──────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
+// index: false so that GET / falls through to the route handler below,
+// which can redirect authenticated users to /dashboard instead of serving
+// index.html directly (express.static bypasses session checks otherwise).
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+// Serve static assets from admin folder (CSS, images) — HTML is served via route
+app.use('/admin', express.static(path.join(__dirname, 'admin'), { index: false }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/auth', require('./routes/auth'));
-app.use('/api',  require('./routes/api'));
+app.use('/auth',  require('./routes/auth'));
+app.use('/api',   require('./routes/api'));
+app.use('/admin', require('./routes/admin'));
 
 // ── Pages ─────────────────────────────────────────────────────────────────────
+app.get('/dashboard', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/inventory', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'inventory.html'));
+});
+
+app.get('/marketplace', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'marketplace.html'));
+});
+
 app.get('/game', (req, res) => {
   if (!req.isAuthenticated()) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'public', 'game.html'));
+  res.redirect('/playtoearn');
+});
+
+app.get('/playtoearn', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'playtoearn.html'));
+});
+
+app.get('/freetoplay', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'freetoplay.html'));
 });
 
 app.get('/', (req, res) => {
-  if (req.isAuthenticated()) return res.redirect('/game');
+  if (req.isAuthenticated()) return res.redirect('/dashboard');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
+  if (req.isAuthenticated()) return res.redirect('/dashboard');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/terms', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
+});
+
+app.get('/privacy', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
 });
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use((_req, res) => res.redirect('/'));
 
-// ── Start (local only – Vercel ignores app.listen) ────────────────────────────
-if (!isProd) {
-  app.listen(PORT, () => {
-    console.log(`\n✅  SolClash running → http://localhost:${PORT}\n`);
-  });
-}
+// ── Start ─────────────────────────────────────────────────────────────────────
+// Always listen — Vercel overrides this with its own handler via module.exports
+app.listen(PORT, () => {
+  console.log(`\n✅  SolClash running → http://localhost:${PORT}\n`);
+});
 
 module.exports = app;
