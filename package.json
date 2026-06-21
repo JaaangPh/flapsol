@@ -13,6 +13,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "overrides": {
+    "rpc-websockets": "7.11.0",
+    "uuid": "8.3.2"
+  },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
     "bcryptjs": "^3.0.3",
