@@ -1,5 +1,15 @@
 require('dotenv').config();
 
+// Log any uncaught startup errors with full detail (helps diagnose Vercel crashes)
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 const express       = require('express');
 const cookieSession = require('cookie-session');
 const passport      = require('passport');
