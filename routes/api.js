@@ -5,7 +5,7 @@ const {
   Connection, PublicKey, LAMPORTS_PER_SOL,
   SystemProgram, Transaction, Keypair, sendAndConfirmTransaction
 } = require('@solana/web3.js');
-const bs58        = require('bs58').default;
+const bs58        = require('bs58');
 const { decrypt } = require('../utils/wallet');
 
 function getSolanaConnection() {

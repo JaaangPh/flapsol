@@ -5,7 +5,7 @@
  */
 
 const { Keypair } = require('@solana/web3.js');
-const bs58        = require('bs58').default;
+const bs58        = require('bs58');
 const crypto      = require('crypto');
 const bip39       = require('bip39');
 const { derivePath } = require('ed25519-hd-key');
