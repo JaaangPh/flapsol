@@ -69,49 +69,6 @@ let seedsCollected    = 0;
 let goldCollected     = 0;
 const COLLECTIBLE_SIZE = 28;  // px
 
-// ── Nest-based spawn rates (calculated from user inventory on init) ───────────
-// These are per-pipe spawn probabilities, derived from nest ownership.
-// Updated once per game session on init.
-let nestSeedPct = 0;  // 0.0 – 1.0
-let nestGoldPct = 0;  // 0.0 – 1.0
-
-// Rarity configs — mirrors the backend RARITY_CFG
-const NEST_RARITY_CFG = {
-  free:      { seedPct: 0.02,  goldPct: 0     },
-  common:    { seedPct: 0.10,  goldPct: 0.05  },
-  rare:      { seedPct: 0.15,  goldPct: 0.10  },
-  legendary: { seedPct: 0.25,  goldPct: 0.17  },
-};
-const NEST_TRIPLE_BONUS = {
-  common:    { seedBonus: 0.05, goldBonus: 0.02 },
-  rare:      { seedBonus: 0.07, goldBonus: 0.05 },
-  legendary: { seedBonus: 0.10, goldBonus: 0.07 },
-};
-
-function calcNestRates(inventory) {
-  const nests = (inventory || []).filter(i => i.type === 'nest');
-  if (!nests.length) return { seedPct: 0, goldPct: 0 };
-
-  const counts = { free: 0, common: 0, rare: 0, legendary: 0 };
-  for (const n of nests) { if (counts[n.rarity] !== undefined) counts[n.rarity]++; }
-
-  let sp = 0, gp = 0;
-  for (const [r, cnt] of Object.entries(counts)) {
-    if (!cnt) continue;
-    const cfg = NEST_RARITY_CFG[r];
-    if (!cfg) continue;
-    sp += cfg.seedPct * cnt;
-    gp += cfg.goldPct * cnt;
-  }
-
-  // Triple-rarity bonus (3+ of same rarity)
-  for (const [r, bonus] of Object.entries(NEST_TRIPLE_BONUS)) {
-    if ((counts[r] || 0) >= 3) { sp += bonus.seedBonus; gp += bonus.goldBonus; }
-  }
-
-  return { seedPct: Math.min(sp, 1.0), goldPct: Math.min(gp, 1.0) };
-}
-
 const GRAVITY           = 0.44;
 const FLAP_POWER        = -8.2;
 const MOVE_SPEED        = 3;
@@ -334,19 +291,6 @@ async function init() {
   // Load energy from server
   await fetchEnergy();
 
-  // Calculate nest-based collectible spawn rates from inventory
-  try {
-    const invRes  = await fetch('/api/inventory');
-    const invData = await invRes.json();
-    if (invData.ok && Array.isArray(invData.inventory)) {
-      const rates = calcNestRates(invData.inventory);
-      nestSeedPct = rates.seedPct;
-      nestGoldPct = rates.goldPct;
-    }
-  } catch (e) {
-    console.warn('[nest rates]', e);
-  }
-
   birdOptions.querySelectorAll('.bird-opt').forEach(opt => {
     opt.addEventListener('click', () => selectBird(opt.dataset.bird));
   });
@@ -538,35 +482,22 @@ async function endGame() {
     if (rewardRes.status === 'fulfilled' && rewardRes.value.ok) {
       try {
         const rdata = await rewardRes.value.json();
-        if (rdata.ok) {
+        if (rdata.ok && rdata.rewards && rdata.rewards.length > 0) {
           const container = document.getElementById('goRewardsContainer');
           const row       = document.getElementById('goRewardsRow');
           if (container && row) {
             row.innerHTML = '';
-
-            // BP always shown if earned (nest reward)
-            if (rdata.bpEarned > 0) {
+            rdata.rewards.forEach(r => {
               const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-bp';
-              pill.innerHTML = `<img src="images/bp.png" alt="BP" /><span>+${rdata.bpEarned} Battle Points</span>`;
+              pill.className = 'go-reward-pill go-reward-' + r.type;
+              let icon = '';
+              if (r.type === 'bp')   icon = '<img src="images/bp.png" alt="BP" />';
+              if (r.type === 'seed') icon = '<img src="images/seed.png" alt="Seed" />';
+              if (r.type === 'gold') icon = '<img src="images/gold.png" alt="Gold" />';
+              pill.innerHTML = `${icon}<span>${r.label}</span>`;
               row.appendChild(pill);
-            }
-
-            // Seeds/Gold only shown if physically collected in-game
-            if (seedsCollected > 0) {
-              const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-seed';
-              pill.innerHTML = `<img src="images/seed.png" alt="Seed" /><span>+${seedsCollected} Seeds collected</span>`;
-              row.appendChild(pill);
-            }
-            if (goldCollected > 0) {
-              const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-gold';
-              pill.innerHTML = `<img src="images/gold.png" alt="Gold" /><span>+${goldCollected} Gold collected</span>`;
-              row.appendChild(pill);
-            }
-
-            if (row.children.length > 0) container.style.display = 'block';
+            });
+            container.style.display = 'block';
           }
         }
       } catch (err) {
@@ -692,17 +623,12 @@ function applyPipeDimensions(pipe) {
 }
 
 // ── Collectibles ──────────────────────────────────────────────────────────────
-// Spawn rates derived from user's nest inventory (nestSeedPct / nestGoldPct).
-// If user has no nests, nothing spawns.
+// Spawned in the center of each pipe gap. 30% seed, 15% gold, 55% nothing.
 function spawnCollectible(pipe) {
-  if (nestSeedPct <= 0 && nestGoldPct <= 0) return;
-
   const roll = Math.random();
   let type = null;
-
-  // Gold is checked first (rarer) — mutually exclusive per pipe
-  if (roll < nestGoldPct)                        type = 'gold';
-  else if (roll < nestGoldPct + nestSeedPct)     type = 'seed';
+  if (roll < 0.15)       type = 'gold';
+  else if (roll < 0.45)  type = 'seed';
   if (!type) return;
 
   const H    = window.innerHeight;
@@ -767,12 +693,13 @@ function showCollectPop(type, x, y) {
   setTimeout(() => el.remove(), 700);
 }
 
-function onResize() {
+
   if (gameState !== 'playing') return;
   birdWrap.style.left = BIRD_LEFT_PX() + 'px';
   pipes.forEach(applyPipeDimensions);
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function rectsOverlap(a, b) {
   const m = 10;
   return !(a.right-m < b.left+m || a.left+m > b.right-m || a.bottom-m < b.top+m || a.top+m > b.bottom-m);
@@ -787,70 +714,30 @@ function showScorePop() {
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
-let _lbPage    = 1;
-const LB_LIMIT = 5;
-
 async function openLeaderboard() {
-  _lbPage = 1;
   lbModal.style.display = 'flex';
-  await fetchLeaderboardPage(_lbPage);
-}
-
-async function fetchLeaderboardPage(page) {
-  const prevBtn  = document.getElementById('lbPrevBtn');
-  const nextBtn  = document.getElementById('lbNextBtn');
-  const pageInfo = document.getElementById('lbPageInfo');
-
-  lbBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Loading…</td></tr>`;
-  if (prevBtn) prevBtn.disabled = true;
-  if (nextBtn) nextBtn.disabled = true;
-
+  lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">Loading…</td></tr>';
   try {
-    const res  = await fetch(`/api/leaderboard?page=${page}&limit=${LB_LIMIT}`);
+    const res  = await fetch('/api/leaderboard');
     const data = await res.json();
-
-    if (!data.ok || !data.board.length) {
-      lbBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No scores yet</td></tr>`;
-      if (pageInfo) pageInfo.textContent = `Page ${page}`;
-      if (prevBtn)  prevBtn.disabled = page <= 1;
-      if (nextBtn)  nextBtn.disabled = true;
+    if (!data.length) {
+      lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">No scores yet</td></tr>';
       return;
     }
-
-    lbBody.innerHTML = data.board.map(row => `
+    lbBody.innerHTML = data.map(row => `
       <tr>
         <td>${row.rank}</td>
         <td>
-          <div style="display:flex;align-items:center;gap:8px;">
-            ${row.avatar ? `<img class="lb-avatar" src="${escHtml(row.avatar)}" alt="" onerror="this.style.display='none'">` : ''}
-            <span>${escHtml(row.name)}</span>
-          </div>
+          ${row.avatar ? `<img class="lb-avatar" src="${escHtml(row.avatar)}" alt="" onerror="this.style.display='none'">` : ''}
+          ${escHtml(row.name)}
         </td>
-        <td style="color:var(--sol-green);font-weight:800;">${row.totalScore.toLocaleString()}</td>
-        <td style="color:rgba(255,255,255,.55);">${row.highScore.toLocaleString()}</td>
+        <td>${row.highScore}</td>
         <td>${escHtml(row.tier || '')}</td>
       </tr>`).join('');
-
-    if (pageInfo) pageInfo.textContent = `Page ${page}`;
-    if (prevBtn)  prevBtn.disabled = page <= 1;
-    if (nextBtn)  nextBtn.disabled = !data.hasMore;
-
   } catch {
-    lbBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f66;padding:20px">Failed to load</td></tr>`;
-    if (prevBtn) prevBtn.disabled = page <= 1;
-    if (nextBtn) nextBtn.disabled = true;
+    lbBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#f66;padding:20px">Failed to load</td></tr>';
   }
 }
-
-document.getElementById('lbPrevBtn')?.addEventListener('click', async () => {
-  if (_lbPage <= 1) return;
-  _lbPage--;
-  await fetchLeaderboardPage(_lbPage);
-});
-document.getElementById('lbNextBtn')?.addEventListener('click', async () => {
-  _lbPage++;
-  await fetchLeaderboardPage(_lbPage);
-});
 
 function escHtml(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

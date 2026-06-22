@@ -67,6 +67,43 @@
           <div class="exp-bar-fill" id="expBar"></div>
         </div>
       </div>
+
+      <!-- Energy bar -->
+      <div class="dash-energy-section" id="dashEnergySection">
+        <div class="dash-energy-label-row">
+          <svg class="dash-energy-bolt" id="dashEnergyBolt" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+            <rect x="7"  y="0"  width="4" height="2" fill="#ffc200"/>
+            <rect x="5"  y="0"  width="2" height="2" fill="#ffda00"/>
+            <rect x="4"  y="2"  width="6" height="2" fill="#ffda00"/>
+            <rect x="3"  y="2"  width="1" height="2" fill="#ffc200"/>
+            <rect x="2"  y="4"  width="6" height="2" fill="#ffda00"/>
+            <rect x="1"  y="6"  width="8" height="2" fill="#ffda00"/>
+            <rect x="1"  y="8"  width="9" height="2" fill="#ffc200"/>
+            <rect x="0"  y="10" width="8" height="2" fill="#ffc200"/>
+            <rect x="4"  y="10" width="5" height="2" fill="#ffda00"/>
+            <rect x="3"  y="12" width="8" height="2" fill="#ffda00"/>
+            <rect x="4"  y="14" width="7" height="2" fill="#ffc200"/>
+            <rect x="6"  y="16" width="5" height="2" fill="#ffda00"/>
+            <rect x="7"  y="18" width="4" height="2" fill="#ffc200"/>
+            <rect x="8"  y="0"  width="2" height="2" fill="#b87000"/>
+            <rect x="6"  y="2"  width="3" height="2" fill="#b87000"/>
+            <rect x="8"  y="4"  width="2" height="2" fill="#b87000"/>
+            <rect x="9"  y="6"  width="2" height="2" fill="#b87000"/>
+            <rect x="10" y="8"  width="2" height="2" fill="#b87000"/>
+            <rect x="8"  y="10" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="12" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="14" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="16" width="1" height="2" fill="#b87000"/>
+          </svg>
+          <span class="dash-energy-text">Energy</span>
+          <span id="dashEnergyVal" class="dash-energy-count">…</span>
+          <span id="dashEnergyRegen" class="dash-energy-regen"></span>        </div>
+        <div class="dash-energy-bar-wrap">
+          <div class="dash-energy-bar" id="dashEnergyBar">
+            <!-- segments injected by JS -->
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ── Features Section (Marketplace & Inventory) ── -->
@@ -113,7 +150,7 @@
         </div>
         <div class="wallet-actions">
           <button class="wallet-action-btn deposit-btn" id="depositBtn">⬇ Deposit</button>
-          <button class="wallet-action-btn swap-btn" id="swapBtn" disabled title="Coming soon">⇄ Swap</button>
+          <button class="wallet-action-btn swap-btn" id="swapBtn">⇄ Swap</button>
         </div>
       </div>
 
@@ -176,6 +213,82 @@
       <div class="modal-actions" style="justify-content:center;margin-top:8px">
         <button class="modal-btn-cancel" id="depositClose">Close</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Swap Modal ── -->
+  <div id="swapModal" class="modal-overlay" style="display:none">
+    <div class="modal-box swap-modal-box">
+
+      <!-- Header -->
+      <div class="swap-header">
+        <h3 class="swap-title">Exchange</h3>
+        <button class="swap-close-btn" id="swapCloseBtn">✕</button>
+      </div>
+
+      <!-- FROM panel: GOLD -->
+      <div class="swap-panel swap-panel-from">
+        <div class="swap-panel-top">
+          <span class="swap-panel-label">From</span>
+          <div class="swap-token-badge">
+            <img src="images/gold.png" alt="GOLD" class="swap-token-icon" />
+            <span>GOLD</span>
+          </div>
+          <span class="swap-change-badge" id="swapChangeBadge">2% fee</span>
+        </div>
+        <input
+          id="swapGoldInput"
+          class="swap-amount-input"
+          type="number"
+          min="102"
+          step="1"
+          placeholder="0"
+          autocomplete="off"
+        />
+        <div class="swap-panel-bottom">
+          <span class="swap-avail-label">Available: <span id="swapGoldAvail">0</span> GOLD</span>
+          <button class="swap-max-btn" id="swapMaxBtn">MAX</button>
+        </div>
+      </div>
+
+      <!-- Arrow divider -->
+      <div class="swap-arrow-row">
+        <div class="swap-arrow-circle">⇅</div>
+      </div>
+
+      <!-- TO panel: SOL -->
+      <div class="swap-panel swap-panel-to">
+        <div class="swap-panel-top">
+          <span class="swap-panel-label">To</span>
+          <div class="swap-token-badge">
+            <img src="images/solana.png" alt="SOL" class="swap-token-icon" />
+            <span>SOL</span>
+          </div>
+          <span class="swap-change-badge swap-change-negative" id="swapSolBadge">≈ 0 SOL</span>
+        </div>
+        <div class="swap-sol-preview" id="swapSolPreview">0.000000</div>
+        <div class="swap-panel-bottom">
+          <span class="swap-avail-label">Wallet: <span id="swapSolBal">0</span> SOL</span>
+        </div>
+      </div>
+
+      <!-- Fee row -->
+      <div class="swap-fee-row">
+        <span class="swap-fee-label">Exchange fee <span class="swap-fee-info" title="2% slippage fee applied to all swaps">ⓘ</span></span>
+        <span class="swap-fee-val" id="swapFeeVal">—</span>
+      </div>
+
+      <!-- Rate row -->
+      <div class="swap-rate-row" id="swapRateRow" style="display:none">
+        <span class="swap-rate-text" id="swapRateText"></span>
+      </div>
+
+      <!-- Error -->
+      <p id="swapError" class="swap-error" style="display:none"></p>
+
+      <!-- Swap button -->
+      <button class="swap-confirm-btn" id="swapConfirmBtn">Swap</button>
+
     </div>
   </div>
 
@@ -621,9 +734,157 @@
       }).catch(() => {});
     });
 
-    // ── Swap (coming soon) ────────────────────────────────────────────────────
-    document.getElementById('swapBtn').addEventListener('click', () => {
-      showAlert('Swap is coming soon!', '⇄ Swap');
+    // ── Swap Modal ────────────────────────────────────────────────────────────
+    const swapModal      = document.getElementById('swapModal');
+    const swapCloseBtn   = document.getElementById('swapCloseBtn');
+    const swapGoldInput  = document.getElementById('swapGoldInput');
+    const swapSolPreview = document.getElementById('swapSolPreview');
+    const swapFeeVal     = document.getElementById('swapFeeVal');
+    const swapRateRow    = document.getElementById('swapRateRow');
+    const swapRateText   = document.getElementById('swapRateText');
+    const swapError      = document.getElementById('swapError');
+    const swapConfirmBtn = document.getElementById('swapConfirmBtn');
+    const swapGoldAvail  = document.getElementById('swapGoldAvail');
+    const swapSolBal     = document.getElementById('swapSolBal');
+    const swapMaxBtn     = document.getElementById('swapMaxBtn');
+    const swapSolBadge   = document.getElementById('swapSolBadge');
+
+    const SLIPPAGE = 0.02;
+    let _swapSolPhp  = null;  // cached live price
+    let _swapGoldBal = 0;
+    let _swapPriceTimer = null;
+
+    async function fetchSwapPrice() {
+      try {
+        const r = await fetch('/api/marketplace/sol-php');
+        const d = await r.json();
+        if (d.ok && d.solPhp) { _swapSolPhp = d.solPhp; }
+      } catch (e) { console.warn('[swap price]', e); }
+      updateSwapPreview();
+    }
+
+    function updateSwapPreview() {
+      const gold = parseInt(swapGoldInput.value, 10) || 0;
+      swapError.style.display = 'none';
+
+      if (!_swapSolPhp || gold <= 0) {
+        swapSolPreview.textContent = '0.000000';
+        swapFeeVal.textContent     = '—';
+        swapRateRow.style.display  = 'none';
+        swapSolBadge.textContent   = '≈ 0 SOL';
+        return;
+      }
+
+      const feeGold    = Math.round(gold * SLIPPAGE);
+      const netGold    = gold - feeGold;
+      const solOut     = netGold / _swapSolPhp;
+
+      swapSolPreview.textContent = solOut.toFixed(6);
+      swapFeeVal.textContent     = `${feeGold.toLocaleString()} GOLD`;
+      swapSolBadge.textContent   = `≈ ${solOut.toFixed(6)} SOL`;
+      swapRateRow.style.display  = 'block';
+      swapRateText.textContent   = `Rate: 1 GOLD ≈ ${(1 / _swapSolPhp).toFixed(8)} SOL · 2% fee`;
+    }
+
+    function openSwapModal() {
+      const goldEl = document.getElementById('goldBalance');
+      const solEl  = document.getElementById('walletBalance');
+      _swapGoldBal = parseInt((goldEl ? goldEl.textContent.replace(/,/g,'') : '0'), 10) || 0;
+      swapGoldAvail.textContent = _swapGoldBal.toLocaleString();
+      swapSolBal.textContent    = solEl ? solEl.textContent.replace(' SOL', '') : '0';
+      swapGoldInput.value       = '';
+      swapSolPreview.textContent = '0.000000';
+      swapFeeVal.textContent     = '—';
+      swapRateRow.style.display  = 'none';
+      swapError.style.display    = 'none';
+      swapConfirmBtn.disabled    = false;
+      swapConfirmBtn.textContent = 'Swap';
+      swapModal.style.display    = 'flex';
+      fetchSwapPrice();
+      // Refresh price every 30s while modal is open
+      _swapPriceTimer = setInterval(fetchSwapPrice, 30000);
+    }
+
+    function closeSwapModal() {
+      swapModal.style.display = 'none';
+      if (_swapPriceTimer) { clearInterval(_swapPriceTimer); _swapPriceTimer = null; }
+    }
+
+    document.getElementById('swapBtn').addEventListener('click', openSwapModal);
+    swapCloseBtn.addEventListener('click', closeSwapModal);
+    swapModal.addEventListener('click', e => { if (e.target === swapModal) closeSwapModal(); });
+
+    swapGoldInput.addEventListener('input', updateSwapPreview);
+
+    swapMaxBtn.addEventListener('click', () => {
+      swapGoldInput.value = _swapGoldBal;
+      updateSwapPreview();
+    });
+
+    swapConfirmBtn.addEventListener('click', async () => {
+      const gold = parseInt(swapGoldInput.value, 10);
+      swapError.style.display = 'none';
+
+      if (!gold || gold < 102) {
+        swapError.textContent  = 'Minimum swap is 102 GOLD.';
+        swapError.style.display = 'block';
+        return;
+      }
+      if (gold > _swapGoldBal) {
+        swapError.textContent  = 'Insufficient GOLD balance.';
+        swapError.style.display = 'block';
+        return;
+      }
+
+      swapConfirmBtn.disabled    = true;
+      swapConfirmBtn.textContent = 'Swapping…';
+
+      try {
+        const res  = await fetch('/api/swap/gold-to-sol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goldAmount: gold }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          swapError.textContent  = data.error || 'Swap failed.';
+          swapError.style.display = 'block';
+          swapConfirmBtn.disabled    = false;
+          swapConfirmBtn.textContent = 'Swap';
+          return;
+        }
+
+        // Update UI balances
+        const goldEl = document.getElementById('goldBalance');
+        if (goldEl) goldEl.textContent = data.newGold.toLocaleString();
+        _swapGoldBal = data.newGold;
+        swapGoldAvail.textContent = data.newGold.toLocaleString();
+
+        // Refresh live SOL balance
+        if (_walletAddr) {
+          fetch('/api/balance/' + _walletAddr).then(r => r.json()).then(d => {
+            if (typeof d.balance === 'number') {
+              document.getElementById('walletBalance').textContent = d.balance.toFixed(4) + ' SOL';
+              swapSolBal.textContent = d.balance.toFixed(4);
+            }
+          }).catch(() => {});
+        }
+
+        closeSwapModal();
+        showAlert(
+          `✅ Swap successful!<br><br>` +
+          `Burned: <b>${gold.toLocaleString()} GOLD</b><br>` +
+          `Received: <b>${data.solSent} SOL</b><br><br>` +
+          `<span style="font-size:.75rem;color:rgba(255,255,255,.4);word-break:break-all;">TX: ${data.txSignature}</span>`,
+          '⇄ Swap Complete'
+        );
+      } catch (err) {
+        swapError.textContent  = 'Network error — check connection.';
+        swapError.style.display = 'block';
+        swapConfirmBtn.disabled    = false;
+        swapConfirmBtn.textContent = 'Swap';
+      }
     });
 
     // ── Play modal ────────────────────────────────────────────────────────────
@@ -901,6 +1162,104 @@
     document.getElementById('inventoryBtn').addEventListener('click', () => {
       window.location.href = '/inventory';
     });
+
+    // ── Dashboard Energy Widget ───────────────────────────────────────────────
+    const DASH_MAX_SEGS = 20;
+    let dashRegenInt  = null;
+    // nestTimers: map of nestId → nextTickAt (absolute ISO from server)
+    let dashNestTimers = {};
+
+    function renderDashEnergyBar(energy, maxEnergy) {
+      const bar = document.getElementById('dashEnergyBar');
+      if (!bar) return;
+      const displayMax  = Math.min(maxEnergy, DASH_MAX_SEGS);
+      const filledCount = maxEnergy > 0 ? Math.round((energy / maxEnergy) * displayMax) : 0;
+      if (bar.children.length !== displayMax) {
+        bar.innerHTML = '';
+        for (let i = 0; i < displayMax; i++) {
+          const seg = document.createElement('div');
+          seg.className = 'dash-energy-seg';
+          bar.appendChild(seg);
+        }
+      }
+      bar.querySelectorAll('.dash-energy-seg').forEach((seg, i) => {
+        seg.classList.toggle('filled', i < filledCount);
+        seg.classList.toggle('empty',  i >= filledCount);
+      });
+      const bolt = document.getElementById('dashEnergyBolt');
+      if (bolt) bolt.classList.toggle('empty', energy <= 0);
+    }
+
+    function msToHMS(ms) {
+      if (ms <= 0) return '0s';
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      const parts = [];
+      if (h > 0) parts.push(`${h}h`);
+      if (m > 0 || h > 0) parts.push(`${m}m`);
+      parts.push(`${s}s`);
+      return parts.join(' ');
+    }
+
+    function startDashRegenCountdown(energy, maxEnergy) {
+      if (dashRegenInt) { clearInterval(dashRegenInt); dashRegenInt = null; }
+      const regenEl = document.getElementById('dashEnergyRegen');
+      if (!regenEl) return;
+
+      if (energy >= maxEnergy) {
+        regenEl.textContent = '';
+        return;
+      }
+
+      function tick() {
+        if (!regenEl) return;
+        const now = Date.now();
+        // Find smallest msUntilNext among all active nest timers
+        let fastestMs = Infinity;
+        for (const nextTickAt of Object.values(dashNestTimers)) {
+          const ms = new Date(nextTickAt).getTime() - now;
+          if (ms < fastestMs) fastestMs = ms;
+        }
+        if (fastestMs <= 0 || fastestMs === Infinity) {
+          regenEl.textContent = '';
+          clearInterval(dashRegenInt);
+          dashRegenInt = null;
+          loadDashEnergy(); // re-fetch
+          return;
+        }
+        regenEl.textContent = msToHMS(fastestMs);
+      }
+
+      tick();
+      dashRegenInt = setInterval(tick, 1000);
+    }
+
+    async function loadDashEnergy() {
+      try {
+        const res  = await fetch('/api/energy');
+        const data = await res.json();
+        if (!data.ok) return;
+
+        const valEl = document.getElementById('dashEnergyVal');
+        if (valEl) valEl.textContent = `${data.energy} / ${data.maxEnergy}`;
+        renderDashEnergyBar(data.energy, data.maxEnergy);
+
+        // Store server-provided absolute timestamps per nest
+        dashNestTimers = {};
+        if (data.nests) {
+          for (const n of data.nests) {
+            if (n.nextTickAt) dashNestTimers[n.nestId] = n.nextTickAt;
+          }
+        }
+
+        startDashRegenCountdown(data.energy, data.maxEnergy);
+      } catch (e) {
+        console.warn('[dash energy]', e);
+      }
+    }
+
+    loadDashEnergy();
   </script>
 </body>
 </html>

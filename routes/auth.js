@@ -191,7 +191,7 @@ router.get('/companion-config', (_req, res) => {
 });
 
 // ── /auth/me ──────────────────────────────────────────────────────────────────
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   if (!req.isAuthenticated()) return res.json({ loggedIn: false });
 
   const {
@@ -200,21 +200,59 @@ router.get('/me', (req, res) => {
     goldBalance, clashBalance, walletBalance,
     rank, badge, level,
     currentExp, requiredExp,
-    totalBP, walletPublicKey,
+    totalBP, walletPublicKey, seeds,
   } = req.user;
 
   // Decrypt wallet public key server-side — never expose private key
-  // Falls back to treating walletPublicKey as plain if decryption fails
-  // (SSO users from the companion app store the key unencrypted)
   let walletAddress = null;
   if (walletPublicKey) {
     try { walletAddress = decrypt(walletPublicKey); } catch {
-      // If it doesn't look like an iv:hex string, it's already a plain key
       if (!walletPublicKey.includes(':')) walletAddress = walletPublicKey;
     }
   }
 
   const gold = goldBalance !== undefined ? goldBalance : (clashBalance !== undefined ? clashBalance : 0);
+
+  // ── Ensure free nest + energy fields exist for older accounts ─────────────
+  try {
+    const db  = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (doc.exists) {
+      const data = doc.data();
+      const backfill = {};
+
+      // Grant free nest if inventory has none and no free nest exists
+      const inv = data.inventory || [];
+      const hasFreeNest = inv.some(i => i.rarity === 'free');
+      if (!hasFreeNest) {
+        const freeNestTag = `Free Nest#${String(Math.floor(1000 + Math.random() * 9000))}`;
+        inv.push({
+          id:          `nest_free_${Date.now()}`,
+          type:        'nest',
+          rarity:      'free',
+          baseName:    'Free Nest',
+          nestTag:     freeNestTag,
+          priceSol:    0,
+          paymentMethod: 'free',
+          purchasedAt: new Date().toISOString(),
+          image:       'images/nest/free.png',
+        });
+        backfill.inventory = inv;
+      }
+
+      // Seed energy fields if missing — start with full base slots (20)
+      if (data.energy === undefined) backfill.energy = 20;
+      if (data.lastEnergyTime === undefined) backfill.lastEnergyTime = new Date().toISOString();
+
+      if (Object.keys(backfill).length > 0) {
+        await ref.update(backfill);
+        Object.assign(req.user, backfill);
+      }
+    }
+  } catch (e) {
+    console.error('[/auth/me backfill]', e);
+  }
 
   res.json({
     loggedIn:      true,
@@ -234,6 +272,7 @@ router.get('/me', (req, res) => {
     currentExp:    currentExp    || 0,
     requiredExp:   requiredExp   || 200,
     totalBP:       totalBP       || 0,
+    seeds:         seeds         || 0,
     walletAddress,
   });
 });

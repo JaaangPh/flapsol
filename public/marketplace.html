@@ -438,6 +438,42 @@
           <div class="exp-bar-fill" id="expBar"></div>
         </div>
       </div>
+
+      <!-- Energy bar -->
+      <div class="dash-energy-section" id="dashEnergySection">
+        <div class="dash-energy-label-row">
+          <svg class="dash-energy-bolt" id="dashEnergyBolt" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+            <rect x="7"  y="0"  width="4" height="2" fill="#ffc200"/>
+            <rect x="5"  y="0"  width="2" height="2" fill="#ffda00"/>
+            <rect x="4"  y="2"  width="6" height="2" fill="#ffda00"/>
+            <rect x="3"  y="2"  width="1" height="2" fill="#ffc200"/>
+            <rect x="2"  y="4"  width="6" height="2" fill="#ffda00"/>
+            <rect x="1"  y="6"  width="8" height="2" fill="#ffda00"/>
+            <rect x="1"  y="8"  width="9" height="2" fill="#ffc200"/>
+            <rect x="0"  y="10" width="8" height="2" fill="#ffc200"/>
+            <rect x="4"  y="10" width="5" height="2" fill="#ffda00"/>
+            <rect x="3"  y="12" width="8" height="2" fill="#ffda00"/>
+            <rect x="4"  y="14" width="7" height="2" fill="#ffc200"/>
+            <rect x="6"  y="16" width="5" height="2" fill="#ffda00"/>
+            <rect x="7"  y="18" width="4" height="2" fill="#ffc200"/>
+            <rect x="8"  y="0"  width="2" height="2" fill="#b87000"/>
+            <rect x="6"  y="2"  width="3" height="2" fill="#b87000"/>
+            <rect x="8"  y="4"  width="2" height="2" fill="#b87000"/>
+            <rect x="9"  y="6"  width="2" height="2" fill="#b87000"/>
+            <rect x="10" y="8"  width="2" height="2" fill="#b87000"/>
+            <rect x="8"  y="10" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="12" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="14" width="2" height="2" fill="#b87000"/>
+            <rect x="11" y="16" width="1" height="2" fill="#b87000"/>
+          </svg>
+          <span class="dash-energy-text">Energy</span>
+          <span id="dashEnergyVal" class="dash-energy-count">…</span>
+          <span id="dashEnergyRegen" class="dash-energy-regen"></span>
+        </div>
+        <div class="dash-energy-bar-wrap">
+          <div class="dash-energy-bar" id="dashEnergyBar"></div>
+        </div>
+      </div>
     </section>
 
     <!-- Nav buttons -->
@@ -880,6 +916,92 @@
     /* ── Nav buttons ── */
     document.getElementById('marketplaceBtn').addEventListener('click', () => window.location.href = '/marketplace');
     document.getElementById('inventoryBtn').addEventListener('click',   () => window.location.href = '/inventory');
+
+    /* ── Energy Widget ── */
+    (function() {
+      const DASH_MAX_SEGS = 20;
+      let dashRegenInt  = null;
+      let dashNestTimers = {};
+
+      function msToHMS(ms) {
+        if (ms <= 0) return '0s';
+        const h = Math.floor(ms / 3600000);
+        const m = Math.floor((ms % 3600000) / 60000);
+        const s = Math.floor((ms % 60000) / 1000);
+        const parts = [];
+        if (h > 0) parts.push(h + 'h');
+        if (m > 0 || h > 0) parts.push(m + 'm');
+        parts.push(s + 's');
+        return parts.join(' ');
+      }
+
+      function renderDashEnergyBar(energy, maxEnergy) {
+        const bar = document.getElementById('dashEnergyBar');
+        if (!bar) return;
+        const displayMax  = Math.min(maxEnergy, DASH_MAX_SEGS);
+        const filledCount = maxEnergy > 0 ? Math.round((energy / maxEnergy) * displayMax) : 0;
+        if (bar.children.length !== displayMax) {
+          bar.innerHTML = '';
+          for (let i = 0; i < displayMax; i++) {
+            const seg = document.createElement('div');
+            seg.className = 'dash-energy-seg';
+            bar.appendChild(seg);
+          }
+        }
+        bar.querySelectorAll('.dash-energy-seg').forEach((seg, i) => {
+          seg.classList.toggle('filled', i < filledCount);
+          seg.classList.toggle('empty',  i >= filledCount);
+        });
+        const bolt = document.getElementById('dashEnergyBolt');
+        if (bolt) bolt.classList.toggle('empty', energy <= 0);
+      }
+
+      function startDashRegenCountdown(energy, maxEnergy) {
+        if (dashRegenInt) { clearInterval(dashRegenInt); dashRegenInt = null; }
+        const regenEl = document.getElementById('dashEnergyRegen');
+        if (!regenEl || energy >= maxEnergy) { if (regenEl) regenEl.textContent = ''; return; }
+
+        function tick() {
+          if (!regenEl) return;
+          const now = Date.now();
+          let fastestMs = Infinity;
+          for (const nextTickAt of Object.values(dashNestTimers)) {
+            const ms = new Date(nextTickAt).getTime() - now;
+            if (ms < fastestMs) fastestMs = ms;
+          }
+          if (fastestMs <= 0 || fastestMs === Infinity) {
+            regenEl.textContent = '';
+            clearInterval(dashRegenInt);
+            dashRegenInt = null;
+            loadDashEnergy();
+            return;
+          }
+          regenEl.textContent = msToHMS(fastestMs);
+        }
+        tick();
+        dashRegenInt = setInterval(tick, 1000);
+      }
+
+      async function loadDashEnergy() {
+        try {
+          const res  = await fetch('/api/energy');
+          const data = await res.json();
+          if (!data.ok) return;
+          const valEl = document.getElementById('dashEnergyVal');
+          if (valEl) valEl.textContent = data.energy + ' / ' + data.maxEnergy;
+          renderDashEnergyBar(data.energy, data.maxEnergy);
+          dashNestTimers = {};
+          if (data.nests) {
+            for (const n of data.nests) {
+              if (n.nextTickAt) dashNestTimers[n.nestId] = n.nextTickAt;
+            }
+          }
+          startDashRegenCountdown(data.energy, data.maxEnergy);
+        } catch (e) { console.warn('[mp energy]', e); }
+      }
+
+      loadDashEnergy();
+    })();
 
     /* ── Tab switching ── */
     document.querySelectorAll('.mp-tab').forEach(tab => {

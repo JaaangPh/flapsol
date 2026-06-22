@@ -439,15 +439,62 @@ kbd {
 
 /* ── Mobile ── */
 @media (max-width: 600px) {
-  .hud-val           { font-size: 2.2rem; }
-  .hud-best .hud-val { font-size: 1.7rem; }
+  /* Move HUD to the right to avoid overlapping the user panel */
+  .hud {
+    left: auto;
+    right: 12px;
+    transform: none;
+    gap: 18px;
+  }
+  .hud-val           { font-size: 2rem; }
+  .hud-best .hud-val { font-size: 1.6rem; }
   .bird              { width: 68px; height: 54px; }
   .overlay-card      { padding: 28px 18px 22px; }
   .bird-opt img      { width: 42px; height: 34px; }
   .user-name         { max-width: 80px; }
 }
 
-/* ── Game Over EXP Container & Animation ── */
+/* ── Game Over energy row ── */
+.go-energy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,194,0,.07);
+  border: 1px solid rgba(255,194,0,.22);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 14px 0 4px;
+}
+.go-energy-bolt {
+  width: 18px;
+  height: 26px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(255,194,0,.6));
+  image-rendering: pixelated;
+}
+.go-energy-label {
+  font-size: .78rem;
+  color: rgba(255,255,255,.55);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  flex: 1;
+}
+.go-energy-count {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffc200;
+  font-family: 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px rgba(255,194,0,.4);
+}
+.go-energy-row.empty .go-energy-bolt {
+  filter: grayscale(1) brightness(.5);
+}
+.go-energy-row.empty .go-energy-count {
+  color: #ff8a94;
+  text-shadow: none;
+}
+
 .go-exp-container {
   margin: 18px 0;
   padding: 14px 16px;
@@ -506,4 +553,137 @@ kbd {
 @keyframes levelUpPulse {
   from { transform: scale(0.96); opacity: 0.8; }
   to   { transform: scale(1.04); opacity: 1; }
+}
+
+/* ── No-energy warning in start overlay ── */
+.energy-warn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,100,100,.1);
+  border: 1px solid rgba(255,100,100,.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  color: #ff8a94;
+  font-size: .84rem;
+  font-weight: 600;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+/* ── Collectibles (seed / gold in pipe gap) ── */
+.collectible {
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 6px rgba(255,220,50,.7));
+  animation: collectFloat 1.1s ease-in-out infinite alternate;
+}
+.collectible-seed {
+  filter: drop-shadow(0 0 6px rgba(80,220,80,.8));
+}
+.collectible-gold {
+  filter: drop-shadow(0 0 8px rgba(255,200,0,.9));
+}
+@keyframes collectFloat {
+  from { transform: translateY(0)   scale(1);    }
+  to   { transform: translateY(-6px) scale(1.08); }
+}
+
+/* ── Collect pop animation ── */
+.collect-pop {
+  font-size: 1.1rem;
+  font-weight: 900;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: collectPop .7s ease-out forwards;
+  text-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+.collect-pop-seed { color: #6fff6f; }
+.collect-pop-gold { color: #ffd700; }
+@keyframes collectPop {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1);   }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(1.3); }
+}
+
+/* ── Game-over rewards section ── */
+.go-rewards-container {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  background: rgba(20,241,149,.05);
+  border: 1px solid rgba(20,241,149,.2);
+  border-radius: 14px;
+  text-align: left;
+}
+.go-rewards-title {
+  font-size: .75rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.55);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.go-rewards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.go-reward-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 8px;
+  border-radius: 20px;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.go-reward-pill img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.go-reward-bp {
+  background: rgba(153,69,255,.18);
+  border: 1px solid rgba(153,69,255,.35);
+  color: #c988ff;
+}
+.go-reward-seed {
+  background: rgba(80,220,80,.12);
+  border: 1px solid rgba(80,220,80,.3);
+  color: #6fff6f;
+}
+.go-reward-gold {
+  background: rgba(255,200,0,.12);
+  border: 1px solid rgba(255,200,0,.3);
+  color: #ffd700;
+}
+
+/* ── Leaderboard pagination ── */
+.lb-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px 0 4px;
+}
+.lb-page-btn {
+  background: rgba(153,69,255,.12);
+  border: 1px solid rgba(153,69,255,.3);
+  border-radius: 10px;
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background .2s, opacity .2s;
+}
+.lb-page-btn:hover:not(:disabled) { background: rgba(153,69,255,.28); }
+.lb-page-btn:disabled { opacity: .35; cursor: not-allowed; }
+.lb-page-info {
+  font-size: .82rem;
+  color: rgba(255,255,255,.5);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: center;
 }

@@ -40,6 +40,20 @@ async function upsertUser(provider, profile) {
   // ── Brand-new user — create Solana wallet ──────────────────────────────────
   const wallet = generateWallet();
 
+  // ── Free nest item for every new user ────────────────────────────────────────
+  const freeNestTag  = `Free Nest#${String(Math.floor(1000 + Math.random() * 9000))}`;
+  const freeNestItem = {
+    id:          `nest_free_${Date.now()}`,
+    type:        'nest',
+    rarity:      'free',
+    baseName:    'Free Nest',
+    nestTag:     freeNestTag,
+    priceSol:    0,
+    paymentMethod: 'free',
+    purchasedAt: now,
+    image:       'images/nest/free.png',
+  };
+
   const newUser = {
     // ── Identity ──────────────────────────────────────────────────────────────
     authProvider:   provider,
@@ -59,6 +73,7 @@ async function upsertUser(provider, profile) {
 
     // ── Economy ───────────────────────────────────────────────────────────────
     goldBalance:    0,
+    seeds:          0,
     walletBalance:  0,
     totalBP:        0,
     totalDeposited: 0,
@@ -98,6 +113,14 @@ async function upsertUser(provider, profile) {
     walletTransactions: [],
     processedDepositSignatures: [],
     seedPhrase:     wallet.seedPhrase || null,
+
+    // ── Inventory (start with free nest) ─────────────────────────────────────
+    inventory: [freeNestItem],
+
+    // ── Energy ────────────────────────────────────────────────────────────────
+    // Starts with full energy (base 20 slots, free nest adds 0 bonus slots).
+    energy:         20,
+    lastEnergyTime: now,   // timestamp of last energy tick / last time energy was calculated
 
     // ── Daily rewards structure ───────────────────────────────────────────────
     dailyRewards: {

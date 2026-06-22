@@ -70,6 +70,12 @@
       </div>
 
       <button class="play-btn" id="playBtn">▶ Start Game</button>
+
+      <!-- No-energy warning (hidden by default) -->
+      <div class="energy-warn" id="energyWarn" style="display:none">
+        <img src="images/energy.png" alt="energy" style="width:18px;vertical-align:middle;margin-right:6px;" />
+        <span id="energyWarnText">No energy! Regenerates in …</span>
+      </div>
       <button class="lb-btn" id="lbToggleBtn">🏆 Leaderboard</button>
       <a href="/dashboard" class="dash-btn">⌂ Dashboard</a>
     </div>
@@ -97,7 +103,43 @@
         <div id="goLevelUpText" class="go-levelup-text" style="display: none;">🎉 LEVEL UP! 🎉</div>
       </div>
 
-      <button class="play-btn" id="restartBtn">↩ Try Again</button>
+      <!-- Nest rewards section -->
+      <div class="go-rewards-container" id="goRewardsContainer" style="display:none;">
+        <div class="go-rewards-title">🎁 Rewards</div>
+        <div class="go-rewards-row" id="goRewardsRow">
+          <!-- reward pills injected by JS -->
+        </div>
+      </div>      <!-- Energy remaining -->
+      <div class="go-energy-row" id="goEnergyRow">
+        <svg class="go-energy-bolt" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+          <rect x="7"  y="0"  width="4" height="2" fill="#ffc200"/>
+          <rect x="5"  y="0"  width="2" height="2" fill="#ffda00"/>
+          <rect x="4"  y="2"  width="6" height="2" fill="#ffda00"/>
+          <rect x="3"  y="2"  width="1" height="2" fill="#ffc200"/>
+          <rect x="2"  y="4"  width="6" height="2" fill="#ffda00"/>
+          <rect x="1"  y="6"  width="8" height="2" fill="#ffda00"/>
+          <rect x="1"  y="8"  width="9" height="2" fill="#ffc200"/>
+          <rect x="0"  y="10" width="8" height="2" fill="#ffc200"/>
+          <rect x="4"  y="10" width="5" height="2" fill="#ffda00"/>
+          <rect x="3"  y="12" width="8" height="2" fill="#ffda00"/>
+          <rect x="4"  y="14" width="7" height="2" fill="#ffc200"/>
+          <rect x="6"  y="16" width="5" height="2" fill="#ffda00"/>
+          <rect x="7"  y="18" width="4" height="2" fill="#ffc200"/>
+          <rect x="8"  y="0"  width="2" height="2" fill="#b87000"/>
+          <rect x="6"  y="2"  width="3" height="2" fill="#b87000"/>
+          <rect x="8"  y="4"  width="2" height="2" fill="#b87000"/>
+          <rect x="9"  y="6"  width="2" height="2" fill="#b87000"/>
+          <rect x="10" y="8"  width="2" height="2" fill="#b87000"/>
+          <rect x="8"  y="10" width="2" height="2" fill="#b87000"/>
+          <rect x="11" y="12" width="2" height="2" fill="#b87000"/>
+          <rect x="11" y="14" width="2" height="2" fill="#b87000"/>
+          <rect x="11" y="16" width="1" height="2" fill="#b87000"/>
+        </svg>
+        <span class="go-energy-label">Energy left</span>
+        <span class="go-energy-count" id="goEnergyCount">… / …</span>
+      </div>
+
+      <button class="play-btn" id="restartBtn">▶ Play Again</button>
       <button class="lb-btn" id="lbToggleBtn2">🏆 Leaderboard</button>
       <a href="/dashboard" class="dash-btn">⌂ Dashboard</a>
     </div>
@@ -106,18 +148,25 @@
   <!-- ── Leaderboard modal ── -->
   <div class="modal-bg" id="lbModal" style="display:none">
     <div class="modal">
-      <h3>🏆 Top 10 Players</h3>
+      <h3>🏆 Leaderboard</h3>
       <table class="lb-table">
         <thead>
           <tr>
             <th>#</th>
             <th>Player</th>
-            <th>Best Score</th>
+            <th>Total Score</th>
+            <th>Best</th>
             <th>Rank</th>
           </tr>
         </thead>
         <tbody id="lbBody"></tbody>
       </table>
+      <!-- Pagination -->
+      <div class="lb-pagination" id="lbPagination">
+        <button class="lb-page-btn" id="lbPrevBtn" disabled>◀ Prev</button>
+        <span class="lb-page-info" id="lbPageInfo">Page 1</span>
+        <button class="lb-page-btn" id="lbNextBtn">Next ▶</button>
+      </div>
       <button class="close-btn" id="closeLb">✕ Close</button>
     </div>
   </div>

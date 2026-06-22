@@ -28,6 +28,11 @@ router.post('/score', requireAuth, async (req, res) => {
     if (typeof score !== 'number' || score < 0 || !isFinite(score))
       return res.status(400).json({ error: 'Invalid score' });
 
+    // Cap score to a realistic maximum (pipe counter — 9999 ≈ 5 hrs non-stop)
+    const MAX_SCORE = 9999;
+    if (score > MAX_SCORE)
+      return res.status(400).json({ error: 'Score exceeds maximum allowed value.' });
+
     // uid is the Firestore auto-generated doc ID set by passport.serializeUser
     const uid = req.user.uid;
     if (!uid) {
@@ -43,7 +48,14 @@ router.post('/score', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const data     = doc.data();
+    const data = doc.data();
+
+    // Rate limit: minimum 30 seconds between score submissions (read from Firestore)
+    const MIN_GAME_MS = 30 * 1000;
+    const lastPlayed  = data.lastPlayedAt ? new Date(data.lastPlayedAt).getTime() : 0;
+    if (Date.now() - lastPlayed < MIN_GAME_MS)
+      return res.status(429).json({ error: 'Please wait before submitting another score.' });
+
     const prevBest = data.highScore ?? 0;
     const newBest  = Math.max(score, prevBest);
 
@@ -71,9 +83,8 @@ router.post('/score', requireAuth, async (req, res) => {
     const updates  = {
       totalAttemptsToday: (data.totalAttemptsToday || 0) + 1,
       lastPlayedAt:       new Date().toISOString(),
-      // Always write highScore — initializes it for SSO users who don't have
-      // the field yet, and updates it when a new best is achieved.
-      highScore: newBest,
+      highScore:          newBest,
+      totalScore:         (data.totalScore || 0) + score, // cumulative — used for leaderboard ranking
       currentExp,
       requiredExp,
       level,
@@ -121,25 +132,37 @@ router.post('/bird', requireAuth, async (req, res) => {
 });
 
 // ── GET /api/leaderboard ──────────────────────────────────────────────────────
-router.get('/leaderboard', async (_req, res) => {
+// Paginated leaderboard ordered by totalScore (cumulative across all matches).
+// Query params: ?page=1&limit=5
+router.get('/leaderboard', async (req, res) => {
   try {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit) || 5));
+
     const db   = getFirestore();
+
+    // Fetch enough docs to support the requested page
+    // Firestore doesn't support offset natively for large sets,
+    // so we fetch page * limit and slice.
     const snap = await db.collection('users')
-      .orderBy('highScore', 'desc')
-      .limit(10)
+      .orderBy('totalScore', 'desc')
+      .limit(page * limit)
       .get();
 
-    const board = snap.docs.map((d, i) => {
-      const { name, avatar, highScore, rank, selectedBird, walletPublicKey } = d.data();
-      
+    const allDocs = snap.docs;
+    const total   = allDocs.length; // docs fetched so far (not total users)
+    const start   = (page - 1) * limit;
+    const pageDocs = allDocs.slice(start, start + limit);
+
+    const board = pageDocs.map((d, i) => {
+      const { name, avatar, highScore, totalScore, rank, selectedBird, walletPublicKey } = d.data();
+
       let walletAddress = null;
       if (walletPublicKey) {
         try {
           walletAddress = decrypt(walletPublicKey);
         } catch {
-          if (!walletPublicKey.includes(':')) {
-            walletAddress = walletPublicKey;
-          }
+          if (!walletPublicKey.includes(':')) walletAddress = walletPublicKey;
         }
       }
 
@@ -147,17 +170,25 @@ router.get('/leaderboard', async (_req, res) => {
       if (walletAddress && walletAddress.length > 12) {
         displayName = walletAddress.slice(0, 8) + '....' + walletAddress.slice(-4);
       }
+
       return {
-        rank:         i + 1,
+        rank:         start + i + 1,
         name:         displayName,
-        avatar:       avatar       || null,
-        highScore:    highScore    || 0,
-        tier:         rank         || 'Bronze',
+        avatar:       avatar      || null,
+        highScore:    highScore   || 0,
+        totalScore:   totalScore  || 0,
+        tier:         rank        || 'Bronze',
         selectedBird: selectedBird || 'bird-1',
       };
     });
 
-    res.json(board);
+    res.json({
+      ok:       true,
+      page,
+      limit,
+      hasMore:  total >= page * limit, // if we got a full page, there may be more
+      board,
+    });
   } catch (err) {
     console.error('[/api/leaderboard]', err);
     res.status(500).json({ error: 'Server error' });
@@ -425,9 +456,29 @@ router.post('/marketplace/buy-nest-gold', requireAuth, async (req, res) => {
     currentInventory.push(newNestItem);
     const newGold = currentGold - goldRequired;
 
-    await ref.update({ inventory: currentInventory, goldBalance: newGold });
+    // ── Add nest's slots as full energy immediately on purchase ──────────
+    const newNestCfg    = ENERGY_CONFIG[rarity];
+    const newNestSlots  = newNestCfg ? newNestCfg.slotBonus : 0;
+    const newNestRegenMs = newNestCfg ? newNestCfg.regenMs : 86400000;
 
-    console.log(`[buy-nest-gold] uid=${uid} bought ${nestTag} rarity=${rarity} goldSpent=${goldRequired} goldLeft=${newGold}`);
+    // Recalculate total slots from the updated inventory
+    let newTotalSlots = BASE_ENERGY_SLOTS;
+    for (const item of currentInventory) {
+      if (item.type !== 'nest') continue;
+      const cfg = ENERGY_CONFIG[item.rarity];
+      if (cfg) newTotalSlots += cfg.slotBonus;
+    }
+
+    // Current energy + the new nest's slot bonus, capped at new total
+    const currentEnergy = typeof userData.energy === 'number' ? userData.energy : 0;
+    const newEnergy = Math.min(currentEnergy + newNestSlots, newTotalSlots);
+
+    // Add a nestTimer for the new nest — already full, so next tick starts now + regenMs
+    const nestTimers = { ...(userData.nestTimers || {}), [newNestItem.id]: { nextTickAt: new Date(Date.now() + newNestRegenMs).toISOString() } };
+
+    await ref.update({ inventory: currentInventory, goldBalance: newGold, energy: newEnergy, nestTimers });
+
+    console.log(`[buy-nest-gold] uid=${uid} bought ${nestTag} rarity=${rarity} goldSpent=${goldRequired} goldLeft=${newGold} energy=${newEnergy}/${newTotalSlots}`);
 
     return res.json({ ok: true, nestTag, newGold });
 
@@ -596,12 +647,30 @@ router.post('/marketplace/buy-nest', requireAuth, async (req, res) => {
     const newBalanceLamports = await connection.getBalance(buyerPubkey).catch(() => null);
     const newBalance = newBalanceLamports !== null ? newBalanceLamports / LAMPORTS_PER_SOL : null;
 
+    // ── Add nest's slots as full energy immediately on purchase ──────────
+    const newNestCfg     = ENERGY_CONFIG[rarity];
+    const newNestSlots   = newNestCfg ? newNestCfg.slotBonus : 0;
+    const newNestRegenMs = newNestCfg ? newNestCfg.regenMs : 86400000;
+
+    let newTotalSlots = BASE_ENERGY_SLOTS;
+    for (const item of currentInventory) {
+      if (item.type !== 'nest') continue;
+      const cfg = ENERGY_CONFIG[item.rarity];
+      if (cfg) newTotalSlots += cfg.slotBonus;
+    }
+
+    const currentEnergy = typeof userData.energy === 'number' ? userData.energy : 0;
+    const newEnergy = Math.min(currentEnergy + newNestSlots, newTotalSlots);
+    const nestTimers = { ...(userData.nestTimers || {}), [newNestItem.id]: { nextTickAt: new Date(Date.now() + newNestRegenMs).toISOString() } };
+
     await ref.update({
       inventory: currentInventory,
+      energy: newEnergy,
+      nestTimers,
       ...(newBalance !== null ? { walletBalance: newBalance } : {}),
     });
 
-    console.log(`[buy-nest] uid=${uid} bought ${nestTag} rarity=${rarity} tx=${txSignature}`);
+    console.log(`[buy-nest] uid=${uid} bought ${nestTag} rarity=${rarity} tx=${txSignature} energy=${newEnergy}/${newTotalSlots}`);
 
     return res.json({
       ok:           true,
@@ -628,6 +697,460 @@ router.get('/inventory', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[/api/inventory]', err);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── Energy System ──────────────────────────────────────────────────────────────
+//
+// Slot rules (total capacity):
+//   Base:      20 slots always (all users)
+//   free:       +0 slots, 1 energy per 4 hours
+//   common:     +0 slots, 1 energy per 1.5 hours
+//   rare:      +10 slots, 1 energy per 1 hour
+//   legendary: +20 slots, 1 energy per 30 minutes
+//
+// Example: user has 1 common + 1 rare → 20 (base) + 0 + 10 = 30 slots
+// Example: user has 1 rare + 1 common + 1 legendary → 20 + 10 + 20 = 50 slots
+//
+// Each nest generates energy independently on its own schedule.
+// Timers stored as absolute ISO timestamps in Firestore — survive logout/device switch.
+
+const ENERGY_CONFIG = {
+  free:      { slotBonus: 0,  regenMs:  4 * 60 * 60 * 1000 },   //  4 h
+  common:    { slotBonus: 0,  regenMs: 1.5 * 60 * 60 * 1000 },  // 1.5 h
+  rare:      { slotBonus: 10, regenMs:       60 * 60 * 1000 },   //  1 h
+  legendary: { slotBonus: 20, regenMs:  0.5 * 60 * 60 * 1000 }, // 30 min
+};
+
+const BASE_ENERGY_SLOTS = 20; // every user always has at least 20 slots
+
+/**
+ * Calculate total energy capacity from a user's inventory.
+ * Base 20 + 10 per rare + 20 per legendary owned.
+ */
+function calcTotalSlots(inventory = []) {
+  let bonus = 0;
+  for (const item of inventory) {
+    if (item.type !== 'nest') continue;
+    const cfg = ENERGY_CONFIG[item.rarity];
+    if (cfg) bonus += cfg.slotBonus;
+  }
+  return BASE_ENERGY_SLOTS + bonus;
+}
+
+/**
+ * Lazily apply regen for all nests.
+ * Returns { newEnergy, updatedTimers, nestDetails }
+ *   updatedTimers – map of nestId → { nextTickAt }  (write back to Firestore)
+ *   nestDetails   – array of { nestId, rarity, slots, nextTickAt, regenMs } for clients
+ */
+function applyAllRegens(currentEnergy, nestTimers = {}, inventory = []) {
+  const now = Date.now();
+  const totalSlots = calcTotalSlots(inventory);
+  let energy = Math.min(currentEnergy ?? 0, totalSlots);
+
+  const updatedTimers = { ...nestTimers };
+  const nestDetails = [];
+
+  for (const item of inventory) {
+    if (item.type !== 'nest') continue;
+    const cfg = ENERGY_CONFIG[item.rarity];
+    if (!cfg) continue;
+
+    const nestId = item.id;
+    const timer  = updatedTimers[nestId] || {};
+
+    // If this nest has no timer yet, start it now
+    if (!timer.nextTickAt) {
+      timer.nextTickAt = new Date(now + cfg.regenMs).toISOString();
+      updatedTimers[nestId] = timer;
+    }
+
+    let nextTick = new Date(timer.nextTickAt).getTime();
+
+    // Catch up on all ticks that have passed since nextTickAt
+    while (nextTick <= now && energy < totalSlots) {
+      energy++;
+      nextTick += cfg.regenMs;
+    }
+    // If we're now full, pause this nest's timer (don't advance further)
+    if (energy >= totalSlots) {
+      // Keep nextTickAt at the last-calculated value so timer resumes correctly
+      // after energy is consumed
+      updatedTimers[nestId] = { nextTickAt: new Date(nextTick).toISOString() };
+    } else {
+      updatedTimers[nestId] = { nextTickAt: new Date(nextTick).toISOString() };
+    }
+
+    nestDetails.push({
+      nestId,
+      nestTag:   item.nestTag,
+      rarity:    item.rarity,
+      slots:     cfg.slots,
+      regenMs:   cfg.regenMs,
+      nextTickAt: updatedTimers[nestId].nextTickAt,
+      msUntilNext: Math.max(0, new Date(updatedTimers[nestId].nextTickAt).getTime() - now),
+    });
+  }
+
+  energy = Math.min(energy, totalSlots);
+  return { newEnergy: energy, updatedTimers, nestDetails, totalSlots };
+}
+
+// ── GET /api/energy ───────────────────────────────────────────────────────────
+router.get('/energy', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const db  = getFirestore();
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    const data = doc.data();
+    const { newEnergy, updatedTimers, nestDetails, totalSlots } = applyAllRegens(
+      data.energy, data.nestTimers || {}, data.inventory || []
+    );
+
+    // Persist regen ticks + updated timers
+    const changed = newEnergy !== (data.energy ?? 0)
+      || JSON.stringify(updatedTimers) !== JSON.stringify(data.nestTimers || {});
+    if (changed) {
+      await db.collection('users').doc(uid).update({
+        energy:     newEnergy,
+        nestTimers: updatedTimers,
+      });
+    }
+
+    // Fastest next tick across all nests (for the dashboard "next regen" display)
+    const fastestMs = nestDetails.reduce((min, n) => Math.min(min, n.msUntilNext), Infinity);
+
+    return res.json({
+      ok:          true,
+      energy:      newEnergy,
+      maxEnergy:   totalSlots,
+      nextRegenMs: newEnergy < totalSlots ? (fastestMs === Infinity ? null : fastestMs) : null,
+      nests:       nestDetails, // per-nest detail for inventory view
+    });
+  } catch (err) {
+    console.error('[/api/energy]', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/energy/use ──────────────────────────────────────────────────────
+router.post('/energy/use', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const db  = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    const data = doc.data();
+    const { newEnergy, updatedTimers, nestDetails, totalSlots } = applyAllRegens(
+      data.energy, data.nestTimers || {}, data.inventory || []
+    );
+
+    if (newEnergy <= 0) {
+      await ref.update({ energy: 0, nestTimers: updatedTimers });
+      const fastestMs = nestDetails.reduce((min, n) => Math.min(min, n.msUntilNext), Infinity);
+      return res.status(400).json({
+        error:      'No energy. Wait for it to regenerate.',
+        energy:     0,
+        maxEnergy:  totalSlots,
+        nextRegenMs: fastestMs === Infinity ? null : fastestMs,
+        nests:      nestDetails,
+      });
+    }
+
+    const afterEnergy = newEnergy - 1;
+
+    // If energy was full, restart timers for all nests from now
+    let timersToSave = updatedTimers;
+    if (newEnergy >= totalSlots) {
+      const now = Date.now();
+      timersToSave = {};
+      for (const item of (data.inventory || [])) {
+        if (item.type !== 'nest') continue;
+        const cfg = ENERGY_CONFIG[item.rarity];
+        if (!cfg) continue;
+        timersToSave[item.id] = { nextTickAt: new Date(now + cfg.regenMs).toISOString() };
+      }
+    }
+
+    await ref.update({ energy: afterEnergy, nestTimers: timersToSave });
+
+    // Recalculate nestDetails with updated timers
+    const updatedDetails = nestDetails.map(n => {
+      const t = timersToSave[n.nestId];
+      if (!t) return n;
+      const msUntilNext = Math.max(0, new Date(t.nextTickAt).getTime() - Date.now());
+      return { ...n, nextTickAt: t.nextTickAt, msUntilNext };
+    });
+
+    const fastestMs = updatedDetails.reduce((min, n) => Math.min(min, n.msUntilNext), Infinity);
+
+    console.log(`[/api/energy/use] uid=${uid} energy=${afterEnergy}/${totalSlots}`);
+    return res.json({
+      ok:         true,
+      energy:     afterEnergy,
+      maxEnergy:  totalSlots,
+      nextRegenMs: afterEnergy < totalSlots ? (fastestMs === Infinity ? null : fastestMs) : null,
+      nests:      updatedDetails,
+    });
+  } catch (err) {
+    console.error('[/api/energy/use]', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/swap/gold-to-sol ────────────────────────────────────────────────
+// User burns $GOLD; backend sends real SOL from store wallet to user's wallet.
+// Rate: 1 GOLD = 1 PHP. SOL/PHP fetched live from CoinGecko.
+// 2% slippage fee applied. Minimum: 102 GOLD.
+router.post('/swap/gold-to-sol', requireAuth, async (req, res) => {
+  try {
+    const { goldAmount } = req.body;
+
+    if (!Number.isInteger(goldAmount) || goldAmount <= 0)
+      return res.status(400).json({ error: 'goldAmount must be a positive integer.' });
+
+    const MIN_GOLD = 102;
+    if (goldAmount < MIN_GOLD)
+      return res.status(400).json({ error: `Minimum swap is ${MIN_GOLD} GOLD.` });
+
+    const uid = req.user.uid;
+    const db  = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    const userData    = doc.data();
+    const currentGold = userData.goldBalance || 0;
+
+    if (currentGold < goldAmount)
+      return res.status(400).json({
+        error: `Insufficient GOLD. Have ${currentGold.toLocaleString()}, need ${goldAmount.toLocaleString()}.`
+      });
+
+    // ── Fetch live SOL/PHP price ──────────────────────────────────────────
+    const https = require('https');
+    const fetchJson = (url) => new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'SolClash/1.0' } }, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
+
+    let solPhp;
+    try {
+      const cgData = await fetchJson('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=php');
+      solPhp = cgData?.solana?.php;
+    } catch (e) {
+      console.error('[swap/gold-to-sol] CoinGecko error:', e);
+    }
+
+    if (!solPhp || typeof solPhp !== 'number')
+      return res.status(502).json({ error: 'Could not fetch live SOL price. Try again shortly.' });
+
+    // Apply 2% slippage fee: user pays goldAmount, gets 98% worth of SOL
+    // 1 GOLD = 1 PHP → effectiveGold PHP ÷ solPhp = SOL to send
+    const SLIPPAGE      = 0.02;
+    const effectiveGold = goldAmount * (1 - SLIPPAGE); // 98% of gold value
+    const solAmount     = effectiveGold / solPhp;       // convert PHP → SOL
+    const lamports      = Math.floor(solAmount * LAMPORTS_PER_SOL);
+
+    if (lamports <= 0)
+      return res.status(400).json({ error: 'Swap amount too small to produce any SOL.' });
+
+    // ── Load store wallet keypair ─────────────────────────────────────────
+    const storePrivKeyB58 = process.env.STORE_WALLET_PRIVATE_KEY;
+    if (!storePrivKeyB58) {
+      console.error('[swap/gold-to-sol] STORE_WALLET_PRIVATE_KEY not set in .env');
+      return res.status(500).json({ error: 'Store wallet not configured.' });
+    }
+
+    let storeKeypair;
+    try {
+      storeKeypair = Keypair.fromSecretKey(bs58.decode(storePrivKeyB58));
+    } catch (e) {
+      console.error('[swap/gold-to-sol] Invalid store keypair:', e);
+      return res.status(500).json({ error: 'Store wallet key invalid.' });
+    }
+
+    // ── Check store wallet balance ────────────────────────────────────────
+    const connection   = getSolanaConnection();
+    const storeBalance = await connection.getBalance(storeKeypair.publicKey);
+    const feeCushion   = 5000; // ~0.000005 SOL for tx fee
+
+    if (storeBalance < lamports + feeCushion) {
+      console.error(`[swap/gold-to-sol] Store wallet low: ${storeBalance} lamports, needs ${lamports + feeCushion}`);
+      return res.status(503).json({ error: 'Congested transaction, please try again later.' });
+    }
+
+    // ── Get user wallet address ───────────────────────────────────────────
+    let userWalletAddress;
+    try {
+      userWalletAddress = userData.walletPublicKey ? decrypt(userData.walletPublicKey) : null;
+    } catch {
+      userWalletAddress = userData.walletPublicKey || null;
+    }
+
+    if (!userWalletAddress)
+      return res.status(400).json({ error: 'No wallet address found for this account.' });
+
+    const userPubkey = new PublicKey(userWalletAddress);
+
+    // ── Deduct GOLD first (prevents double-spend) ─────────────────────────
+    const newGold = currentGold - goldAmount;
+    await ref.update({ goldBalance: newGold });
+
+    // ── Send SOL from store wallet → user wallet ──────────────────────────
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: storeKeypair.publicKey,
+        toPubkey:   userPubkey,
+        lamports,
+      })
+    );
+
+    let txSignature;
+    try {
+      txSignature = await sendAndConfirmTransaction(
+        connection, transaction, [storeKeypair], { commitment: 'confirmed' }
+      );
+    } catch (txErr) {
+      // TX failed — refund the gold
+      console.error('[swap/gold-to-sol] TX failed, refunding gold:', txErr);
+      await ref.update({ goldBalance: currentGold });
+      return res.status(400).json({
+        error: 'Solana transaction failed: ' + (txErr.message || 'Unknown error')
+      });
+    }
+
+    // ── Record swap history ───────────────────────────────────────────────
+    await db.collection('swaps').add({
+      uid,
+      goldBurned:  goldAmount,
+      feeGold:     Math.round(goldAmount * SLIPPAGE),
+      solSent:     solAmount,
+      lamports,
+      solPhp,
+      txSignature,
+      toWallet:    userWalletAddress,
+      createdAt:   new Date().toISOString(),
+    });
+
+    console.log(`[swap/gold-to-sol] uid=${uid} goldBurned=${goldAmount} solSent=${solAmount.toFixed(6)} tx=${txSignature}`);
+
+    return res.json({
+      ok:         true,
+      goldBurned: goldAmount,
+      feeGold:    Math.round(goldAmount * SLIPPAGE),
+      solSent:    parseFloat(solAmount.toFixed(6)),
+      newGold,
+      txSignature,
+      rate:       `${goldAmount} GOLD → ${solAmount.toFixed(6)} SOL`,
+    });
+
+  } catch (err) {
+    console.error('[swap/gold-to-sol]', err);
+    return res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+// ── POST /api/game/end ────────────────────────────────────────────────────────
+// Called when a play-to-earn game ends.
+// Seeds & Gold: physically collected in-game (pipe spawns driven by nest rates).
+// BP: awarded at game end based on rarest nest owned.
+// Drop rates per nest rarity (stacking):
+//   free:      seeds 2%,  gold 0.5%
+//   common:    seeds 10%, gold 5%
+//   rare:      seeds 15%, gold 10%
+//   legendary: seeds 25%, gold 17%
+// Triple-rarity bonus (3+ same rarity):
+//   common×3+:    +5% seeds, +2% gold
+//   rare×3+:      +7% seeds, +5% gold
+//   legendary×3+: +10% seeds, +7% gold
+// BP range by rarest nest: free 1-20 | common 21-40 | rare 41-70 | legendary 71-100
+router.post('/game/end', requireAuth, async (req, res) => {
+  try {
+    const { seedsCollected = 0, goldCollected = 0 } = req.body;
+
+    // Cap to prevent abuse (max 50 of each per game)
+    const safeSeeds = Math.min(Math.max(0, Math.floor(Number(seedsCollected) || 0)), 50);
+    const safeGold  = Math.min(Math.max(0, Math.floor(Number(goldCollected)  || 0)), 50);
+
+    const uid = req.user.uid;
+    const db  = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    const data      = doc.data();
+    const inventory = data.inventory || [];
+    const nests     = inventory.filter(i => i.type === 'nest');
+
+    // ── Rarity configs ────────────────────────────────────────────────────
+    const RARITY_ORDER = ['free', 'common', 'rare', 'legendary'];
+    const RARITY_CFG = {
+      free:      { seedPct: 0.02,  goldPct: 0,     bpMin: 1,  bpMax: 20  },
+      common:    { seedPct: 0.10,  goldPct: 0.05,  bpMin: 21, bpMax: 40  },
+      rare:      { seedPct: 0.15,  goldPct: 0.10,  bpMin: 41, bpMax: 70  },
+      legendary: { seedPct: 0.25,  goldPct: 0.17,  bpMin: 71, bpMax: 100 },
+    };
+    const TRIPLE_BONUS = {
+      common:    { seedBonus: 0.05, goldBonus: 0.02 },
+      rare:      { seedBonus: 0.07, goldBonus: 0.05 },
+      legendary: { seedBonus: 0.10, goldBonus: 0.07 },
+    };
+
+    let bpEarned = 0;
+
+    if (nests.length > 0) {
+      const counts = { free: 0, common: 0, rare: 0, legendary: 0 };
+      for (const n of nests) {
+        if (counts[n.rarity] !== undefined) counts[n.rarity]++;
+      }
+
+      // BP: determined by rarest nest
+      let rarestRarity = 'free';
+      for (const r of RARITY_ORDER) {
+        if (counts[r] > 0) rarestRarity = r;
+      }
+      const bpCfg = RARITY_CFG[rarestRarity];
+      bpEarned = Math.floor(Math.random() * (bpCfg.bpMax - bpCfg.bpMin + 1)) + bpCfg.bpMin;
+    }
+
+    // ── Save to Firestore ─────────────────────────────────────────────────
+    const updates = {
+      totalBP: (data.totalBP || 0) + bpEarned,
+    };
+    if (safeSeeds > 0) updates.seeds       = (data.seeds       || 0) + safeSeeds;
+    if (safeGold  > 0) updates.goldBalance = (data.goldBalance  || 0) + safeGold;
+
+    await ref.update(updates);
+
+    // ── Build reward summary ──────────────────────────────────────────────
+    const rewards = [];
+    if (bpEarned  > 0) rewards.push({ type: 'bp',   amount: bpEarned,  label: `+${bpEarned} Battle Points` });
+    if (safeSeeds > 0) rewards.push({ type: 'seed',  amount: safeSeeds, label: `+${safeSeeds} Seeds` });
+    if (safeGold  > 0) rewards.push({ type: 'gold',  amount: safeGold,  label: `+${safeGold} Gold` });
+
+    console.log(`[game/end] uid=${uid} bp=${bpEarned} seeds=${safeSeeds} gold=${safeGold}`);
+
+    return res.json({
+      ok:          true,
+      bpEarned,
+      seedsEarned: safeSeeds,
+      goldEarned:  safeGold,
+      newBP:       updates.totalBP,
+      rewards,
+    });
+
+  } catch (err) {
+    console.error('[game/end]', err);
+    return res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
 
