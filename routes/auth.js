@@ -126,7 +126,11 @@ router.get('/sso', async (req, res) => {
       Object.assign(docData, missing);
     }
 
-    const user = { uid: userDoc.id, ...docData };
+    // Issue a new session token — invalidates any existing session on other devices
+    const newSessionId = crypto.randomBytes(32).toString('hex');
+    await userDoc.ref.update({ currentSessionId: newSessionId });
+
+    const user = { uid: userDoc.id, ...docData, currentSessionId: newSessionId };
 
     await new Promise((resolve, reject) => {
       req.login(user, err => err ? reject(err) : resolve());

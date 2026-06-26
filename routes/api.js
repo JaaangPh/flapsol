@@ -1154,5 +1154,42 @@ router.post('/game/end', requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/session-check ────────────────────────────────────────────────────
+// Lightweight endpoint the client polls to detect forced logout.
+// Returns { valid: true } if the session token still matches Firestore.
+// Returns { valid: false, reason: 'kicked' } if another device has logged in.
+// Returns { valid: false, reason: 'unauthenticated' } if there is no session.
+router.get('/session-check', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.json({ valid: false, reason: 'unauthenticated' });
+  }
+
+  try {
+    const uid = req.user.uid;
+    const db  = getFirestore();
+    const doc = await db.collection('users').doc(uid).get();
+
+    if (!doc.exists) {
+      return res.json({ valid: false, reason: 'unauthenticated' });
+    }
+
+    const { currentSessionId } = doc.data();
+    // Reconstruct the sessionId stored in the cookie session
+    const cookieSessionId = req.session && req.session.passport && req.session.passport.user
+      ? req.session.passport.user.sessionId
+      : null;
+
+    // If both sides have a sessionId they must match
+    if (currentSessionId && cookieSessionId && currentSessionId !== cookieSessionId) {
+      return res.json({ valid: false, reason: 'kicked' });
+    }
+
+    return res.json({ valid: true });
+  } catch (err) {
+    console.error('[/api/session-check]', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
 

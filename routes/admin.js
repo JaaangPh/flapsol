@@ -123,4 +123,57 @@ router.post('/api/nest-prices', requireAdmin, async (req, res) => {
   }
 });
 
+// ── GET /admin/api/maintenance ────────────────────────────────────────────────
+// Returns current maintenance mode state and whitelist.
+router.get('/api/maintenance', requireAdmin, async (_req, res) => {
+  try {
+    const db  = getFirestore();
+    const doc = await db.collection('config').doc('maintenance').get();
+    if (doc.exists) {
+      const data = doc.data();
+      return res.json({
+        ok: true,
+        enabled:   data.enabled   ?? false,
+        whitelist: data.whitelist ?? [],
+      });
+    }
+    return res.json({ ok: true, enabled: false, whitelist: [] });
+  } catch (err) {
+    console.error('[admin/api/maintenance GET]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/maintenance ───────────────────────────────────────────────
+// Updates maintenance mode state and/or whitelist.
+router.post('/api/maintenance', requireAdmin, async (req, res) => {
+  try {
+    const { enabled, whitelist } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean.' });
+    }
+    if (!Array.isArray(whitelist)) {
+      return res.status(400).json({ error: 'whitelist must be an array.' });
+    }
+
+    // Normalise and validate emails
+    const cleanList = whitelist
+      .map(e => String(e).trim().toLowerCase())
+      .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+    const db = getFirestore();
+    await db.collection('config').doc('maintenance').set(
+      { enabled, whitelist: cleanList, updatedAt: new Date().toISOString() },
+      { merge: true }
+    );
+
+    console.log(`[admin/api/maintenance] enabled=${enabled} whitelist=[${cleanList.join(', ')}]`);
+    return res.json({ ok: true, enabled, whitelist: cleanList });
+  } catch (err) {
+    console.error('[admin/api/maintenance POST]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 module.exports = router;

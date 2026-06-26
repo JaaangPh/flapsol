@@ -476,14 +476,6 @@
       </div>
     </section>
 
-    <!-- Nav buttons -->
-    <section class="features-section" style="margin-bottom:14px;">
-      <div style="display:flex;gap:12px;">
-        <button class="feature-btn active" id="marketplaceBtn">🛒 Marketplace</button>
-        <button class="feature-btn" id="inventoryBtn">🎒 Inventory</button>
-      </div>
-    </section>
-
     <!-- Solana Wallet card -->
     <div class="mp-wallet-card">
       <div class="mp-wallet-header">
@@ -912,10 +904,6 @@
         loadGoldPrices();
       })
       .catch(() => { window.location.href = '/'; });
-
-    /* ── Nav buttons ── */
-    document.getElementById('marketplaceBtn').addEventListener('click', () => window.location.href = '/marketplace');
-    document.getElementById('inventoryBtn').addEventListener('click',   () => window.location.href = '/inventory');
 
     /* ── Energy Widget ── */
     (function() {
@@ -1396,6 +1384,86 @@
     holdRevealBtn.addEventListener('pointerup',    endHold);
     holdRevealBtn.addEventListener('pointerleave', endHold);
     holdRevealBtn.addEventListener('pointercancel',endHold);
+  </script>
+  <script src="js/session-guard.js"></script>
+
+  <!-- ── Play Mode Modal ── -->
+  <div id="playModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
+    <div style="position:relative;background:#0d1b3e;border:3px solid #1a3a6e;border-radius:8px;padding:32px 28px 24px;max-width:360px;width:92%;text-align:center;box-shadow:0 0 0 2px #0a1228,0 24px 60px rgba(0,0,0,0.7);font-family:'Courier New',monospace;">
+      <h2 style="color:#fff;margin:0 0 6px;font-size:20px;font-weight:900;letter-spacing:1px;text-transform:uppercase;">Choose Game Mode</h2>
+      <p style="color:#8aa0c8;font-size:12px;margin:0 0 24px;letter-spacing:.5px;">How do you want to play?</p>
+      <a href="/freetoplay" style="display:block;padding:18px 16px;margin-bottom:12px;background:#1e2d4a;border:2px solid #2e4470;border-radius:6px;text-decoration:none;color:#fff;transition:border-color .15s,background .15s;">
+        <div style="font-size:36px;margin-bottom:8px;line-height:1;">😎</div>
+        <div style="font-size:15px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">Practice Mode</div>
+        <div style="font-size:11px;color:#8aa0c8;letter-spacing:.3px;">Practice Gameplay — no data saved</div>
+      </a>
+      <a href="/playtoearn" style="display:block;padding:18px 16px;background:#0e3535;border:2px solid #0d9e8a;border-radius:6px;text-decoration:none;color:#fff;transition:border-color .15s,background .15s;position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px);background-size:6px 6px;pointer-events:none;"></div>
+        <div style="font-size:36px;margin-bottom:8px;line-height:1;position:relative;">💎</div>
+        <div style="font-size:15px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;position:relative;color:#00e8c8;">Competitive Mode</div>
+        <div style="font-size:11px;color:#6ecfbe;letter-spacing:.3px;position:relative;">Scores saved · Leaderboard · Rewards</div>
+      </a>
+      <button id="closeModalBtn" style="margin-top:18px;background:none;border:none;color:#8aa0c8;font-size:12px;font-family:'Courier New',monospace;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;padding:6px 16px;">✕ Cancel</button>
+      <div style="position:absolute;bottom:14px;right:16px;color:#1a3a6e;font-size:16px;pointer-events:none;">◆</div>
+    </div>
+  </div>
+
+  <!-- ── Bottom Navigation Bar ── -->
+  <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+    <!-- Home -->
+    <a href="/dashboard" aria-label="Home">
+      <div class="nav-icon-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+      </div>
+      <span>Home</span>
+    </a>
+    <!-- Farm -->
+    <a href="/dashboard" aria-label="Farm">
+      <div class="nav-icon-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </div>
+      <span>Farm</span>
+    </a>
+    <!-- Play Now -->
+    <a href="#" id="navPlayNow" aria-label="Play Now">
+      <div class="nav-icon-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <span>Play Now</span>
+    </a>
+    <!-- Marketplace (active) -->
+    <a href="/marketplace" class="active" aria-label="Marketplace" aria-current="page">
+      <div class="nav-icon-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      </div>
+      <span>Market</span>
+    </a>
+    <!-- Inventory -->
+    <a href="/inventory" aria-label="Inventory">
+      <div class="nav-icon-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+      </div>
+      <span>Inventory</span>
+    </a>
+  </nav>
+  <script>
+    document.body.classList.add('has-bottom-nav');
+    // Play Now nav button opens the game mode modal
+    const _navPlay = document.getElementById('navPlayNow');
+    const _playModal = document.getElementById('playModal');
+    const _closeModalBtn = document.getElementById('closeModalBtn');
+    if (_navPlay && _playModal) {
+      _navPlay.addEventListener('click', function(e) {
+        e.preventDefault();
+        _playModal.style.display = 'flex';
+      });
+      _closeModalBtn.addEventListener('click', function() {
+        _playModal.style.display = 'none';
+      });
+      _playModal.addEventListener('click', function(e) {
+        if (e.target === _playModal) _playModal.style.display = 'none';
+      });
+    }
   </script>
 </body>
 </html>

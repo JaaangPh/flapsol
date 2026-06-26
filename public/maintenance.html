@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolClash – Under Maintenance</title>
+  <link rel="icon" href="images/favicon.ico" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100dvh;
+      background: #060614;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(153,69,255,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 50% 110%, rgba(20,241,149,.08) 0%, transparent 60%);
+    }
+
+    /* Animated stars */
+    .stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .star {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle var(--d) ease-in-out infinite;
+      opacity: 0;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0; transform: scale(1); }
+      50%       { opacity: var(--o); transform: scale(1.4); }
+    }
+
+    .card {
+      position: relative;
+      z-index: 10;
+      background: rgba(8, 8, 26, 0.88);
+      border: 1px solid rgba(153, 69, 255, 0.3);
+      border-radius: 28px;
+      padding: 52px 44px 44px;
+      max-width: 520px;
+      width: 92%;
+      text-align: center;
+      backdrop-filter: blur(20px);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.04) inset,
+        0 32px 80px rgba(0,0,0,.65),
+        0 0 60px rgba(153,69,255,.1);
+      animation: fadeUp .6s ease-out both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .logo-wrap img {
+      width: 40px; height: 40px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 10px rgba(153,69,255,.5));
+    }
+    .logo-wrap span {
+      font-size: 1.25rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #9945ff, #14f195);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: .5px;
+    }
+
+    .wrench-icon {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      display: block;
+      animation: wobble 2.4s ease-in-out infinite;
+    }
+    @keyframes wobble {
+      0%, 100% { transform: rotate(-8deg); }
+      50%       { transform: rotate(8deg); }
+    }
+
+    .title {
+      font-family: 'Press Start 2P', cursive;
+      font-size: clamp(.72rem, 3vw, 1rem);
+      line-height: 1.7;
+      background: linear-gradient(135deg, #9945ff, #14f195);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+      letter-spacing: .5px;
+    }
+
+    .divider {
+      width: 60px; height: 2px;
+      background: linear-gradient(90deg, #9945ff, #14f195);
+      border-radius: 2px;
+      margin: 0 auto 22px;
+      opacity: .6;
+    }
+
+    .subtitle {
+      font-size: .88rem;
+      color: rgba(255,255,255,.5);
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(153,69,255,.1);
+      border: 1px solid rgba(153,69,255,.3);
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: .78rem;
+      font-weight: 700;
+      color: rgba(255,255,255,.7);
+      letter-spacing: .3px;
+    }
+    .pulse-dot {
+      width: 8px; height: 8px;
+      background: #f0b840;
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .4; transform: scale(.7); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Stars background -->
+  <div class="stars" id="stars"></div>
+
+  <div class="card">
+    <div class="logo-wrap">
+      <img src="images/logo.png" alt="SolClash" />
+      <span>SolClash</span>
+    </div>
+
+    <span class="wrench-icon">🔧</span>
+
+    <h1 class="title">SOL CLASH IS UNDER MAINTENANCE, PLEASE TRY AGAIN LATER!</h1>
+
+    <div class="divider"></div>
+
+    <p class="subtitle">
+      We're working hard to improve your experience.<br />
+      We'll be back online shortly.
+    </p>
+
+    <div class="status-badge">
+      <div class="pulse-dot"></div>
+      Maintenance in progress
+    </div>
+  </div>
+
+  <script>
+    // Generate random stars
+    const container = document.getElementById('stars');
+    for (let i = 0; i < 80; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      s.style.cssText = `
+        left: ${Math.random() * 100}%;
+        top:  ${Math.random() * 100}%;
+        --d:  ${1.5 + Math.random() * 3}s;
+        --o:  ${0.3 + Math.random() * 0.7};
+        animation-delay: ${Math.random() * 3}s;
+      `;
+      container.appendChild(s);
+    }
+  </script>
+</body>
+</html>

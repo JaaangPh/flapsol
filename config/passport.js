@@ -28,13 +28,15 @@ async function upsertUser(provider, profile) {
 
   if (!snap.empty) {
     const doc = snap.docs[0];
+    const sessionId = require('crypto').randomBytes(32).toString('hex');
     await doc.ref.update({
       lastLoginTime: now,
+      currentSessionId: sessionId,
       [`oauthProviders.${provider}.lastSeen`]: now,
       [`oauthProviders.${provider}.avatar`]:   avatar,
       [`oauthProviders.${provider}.name`]:     name,
     });
-    return { uid: doc.id, ...doc.data() };
+    return { uid: doc.id, ...doc.data(), currentSessionId: sessionId };
   }
 
   // ── Brand-new user — create Solana wallet ──────────────────────────────────
@@ -105,7 +107,7 @@ async function upsertUser(provider, profile) {
 
     // ── Security ──────────────────────────────────────────────────────────────
     securityPin:    null,
-    currentSessionId: null,
+    currentSessionId: require('crypto').randomBytes(32).toString('hex'),
 
     // ── Wallet (encrypted) ────────────────────────────────────────────────────
     walletPublicKey:  wallet.walletPublicKey,
@@ -153,13 +155,31 @@ async function upsertUser(provider, profile) {
 // ── Passport config ───────────────────────────────────────────────────────────
 module.exports = (passport) => {
 
-  passport.serializeUser((user, done) => done(null, user.uid));
+  passport.serializeUser((user, done) => {
+    // Store both uid and the session token issued at login time
+    done(null, { uid: user.uid, sessionId: user.currentSessionId });
+  });
 
-  passport.deserializeUser(async (uid, done) => {
+  passport.deserializeUser(async (payload, done) => {
+    // Support legacy sessions that stored only a string uid
+    const uid       = typeof payload === 'string' ? payload : payload.uid;
+    const sessionId = typeof payload === 'string' ? null     : payload.sessionId;
+
     try {
       const db  = getFirestore();
       const doc = await db.collection('users').doc(uid).get();
-      done(null, doc.exists ? { uid, ...doc.data() } : false);
+      if (!doc.exists) return done(null, false);
+
+      const data = doc.data();
+
+      // ── Single-device enforcement ──────────────────────────────────────
+      // If we have a sessionId in the cookie AND a currentSessionId in Firestore,
+      // they must match.  A mismatch means another device has logged in.
+      if (sessionId && data.currentSessionId && data.currentSessionId !== sessionId) {
+        return done(null, false); // kick this session out
+      }
+
+      done(null, { uid, ...data });
     } catch (err) {
       done(err, null);
     }

@@ -86,6 +86,66 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 // Serve static assets from admin folder (CSS, images) — HTML is served via route
 app.use('/admin', express.static(path.join(__dirname, 'admin'), { index: false }));
 
+// ── Maintenance infrastructure ────────────────────────────────────────────────
+const { getFirestore } = require('./config/firebase');
+
+let _maintenanceCache  = null;   // { enabled, whitelist, fetchedAt }
+const MAINTENANCE_TTL  = 15000;  // re-fetch at most every 15 s
+
+async function getMaintenanceConfig() {
+  const now = Date.now();
+  if (_maintenanceCache && (now - _maintenanceCache.fetchedAt) < MAINTENANCE_TTL) {
+    return _maintenanceCache;
+  }
+  try {
+    const db  = getFirestore();
+    const doc = await db.collection('config').doc('maintenance').get();
+    const data = doc.exists ? doc.data() : {};
+    _maintenanceCache = {
+      enabled:   data.enabled   ?? false,
+      whitelist: (data.whitelist ?? []).map(e => String(e).toLowerCase()),
+      fetchedAt: now,
+    };
+  } catch {
+    if (!_maintenanceCache) _maintenanceCache = { enabled: false, whitelist: [], fetchedAt: now };
+    else _maintenanceCache.fetchedAt = now;
+  }
+  return _maintenanceCache;
+}
+
+// ── Maintenance page ──────────────────────────────────────────────────────────
+// Only accessible when maintenance mode is ON. Otherwise redirect away.
+app.get('/maintenance', async (req, res) => {
+  const cfg = await getMaintenanceConfig();
+  if (!cfg.enabled) {
+    return req.isAuthenticated() ? res.redirect('/dashboard') : res.redirect('/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'maintenance.html'));
+});
+
+// ── Maintenance mode middleware ───────────────────────────────────────────────
+// If enabled, blocks protected routes unless the user's email is whitelisted.
+
+// Routes that are always accessible even during maintenance
+const MAINTENANCE_BYPASS = ['/maintenance', '/auth/', '/admin', '/health', '/terms', '/privacy'];
+
+async function maintenanceGuard(req, res, next) {
+  if (MAINTENANCE_BYPASS.some(p => req.path === p || req.path.startsWith(p))) return next();
+
+  const protectedPaths = ['/dashboard', '/inventory', '/marketplace', '/playtoearn', '/freetoplay', '/game'];
+  if (!protectedPaths.some(p => req.path === p || req.path.startsWith(p))) return next();
+
+  const cfg = await getMaintenanceConfig();
+  if (!cfg.enabled) return next();
+
+  const userEmail = req.user && req.user.email ? req.user.email.toLowerCase() : null;
+  if (userEmail && cfg.whitelist.includes(userEmail)) return next();
+
+  return res.redirect('/maintenance');
+}
+
+app.use(maintenanceGuard);
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/auth',  require('./routes/auth'));
 app.use('/api',   require('./routes/api'));

@@ -289,6 +289,64 @@
     .preview-chip.legendary .dot { background: #f0b840; }
     .preview-chip .lbl { color: var(--muted); }
     .preview-chip .val { font-weight: 700; color: #fff; }
+
+    /* ── Toggle switch ── */
+    .toggle-switch { position: relative; display: inline-block; cursor: pointer; }
+    .toggle-switch input { display: none; }
+    .toggle-track {
+      display: block;
+      width: 52px; height: 28px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      transition: background .25s, border-color .25s;
+      position: relative;
+    }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 20px; height: 20px;
+      background: rgba(255,255,255,.5);
+      border-radius: 50%;
+      transition: transform .25s, background .25s;
+      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: linear-gradient(135deg, #9945ff, #14f195);
+      border-color: rgba(20,241,149,.4);
+    }
+    .toggle-switch input:checked + .toggle-track .toggle-thumb {
+      transform: translateX(24px);
+      background: #fff;
+    }
+
+    /* ── Whitelist chip ── */
+    .wl-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(153,69,255,.08);
+      border: 1px solid rgba(153,69,255,.22);
+      border-radius: 10px;
+      padding: 9px 13px;
+      font-size: .84rem;
+      color: rgba(255,255,255,.85);
+      animation: chipIn .18s ease-out;
+    }
+    @keyframes chipIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .wl-chip-email { font-family: 'Courier New', monospace; font-size: .8rem; word-break: break-all; }
+    .wl-chip-remove {
+      background: none; border: none;
+      color: rgba(255,107,107,.7);
+      font-size: 1rem; cursor: pointer;
+      margin-left: 10px; flex-shrink: 0;
+      line-height: 1;
+      transition: color .15s;
+    }
+    .wl-chip-remove:hover { color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -388,6 +446,56 @@
     <div style="margin-top:20px;">
       <button class="btn-save" id="saveBtn">
         <span class="btn-label">💾 Save Prices</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+  </div>
+  <!-- Maintenance Mode Section -->
+  <div class="section-card">
+    <div class="section-title">
+      <span class="icon">🔧</span>
+      Maintenance Mode
+    </div>
+    <p class="section-desc">
+      When enabled, all players are redirected to the maintenance page.
+      Whitelisted Gmail accounts bypass maintenance and retain full access.
+    </p>
+
+    <!-- Toggle row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:18px;">
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:3px;">Maintenance Toggle</div>
+        <div style="font-size:.75rem;color:var(--muted);" id="maintStatusText">Loading…</div>
+      </div>
+      <label class="toggle-switch" title="Toggle maintenance mode">
+        <input type="checkbox" id="maintToggle" />
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Whitelist -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.82rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:10px;text-transform:uppercase;letter-spacing:.6px;">Gmail Whitelist</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="email" id="whitelistInput" placeholder="user@gmail.com"
+          style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(153,69,255,.3);border-radius:10px;color:#fff;font-size:.88rem;padding:10px 12px;outline:none;transition:border-color .2s,box-shadow .2s;"
+        />
+        <button id="whitelistAddBtn"
+          style="padding:10px 18px;background:linear-gradient(135deg,#9945ff,#14f195);border:none;border-radius:10px;color:#fff;font-size:.88rem;font-weight:800;cursor:pointer;white-space:nowrap;transition:filter .15s;">
+          + Add
+        </button>
+      </div>
+      <div id="whitelistItems" style="display:flex;flex-direction:column;gap:7px;min-height:20px;">
+        <div style="font-size:.78rem;color:var(--muted);text-align:center;padding:12px 0;" id="whitelistEmpty">No emails whitelisted yet.</div>
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div style="margin-top:20px;">
+      <button class="btn-save" id="maintSaveBtn">
+        <span class="btn-label">💾 Save Maintenance Settings</span>
         <span class="spinner"></span>
       </button>
     </div>
@@ -499,6 +607,115 @@
       window.location.href = '/admin/login';
     }
   });
+  // ── Maintenance Mode ──────────────────────────────────────────────────────────
+  let _whitelist = [];
+
+  function renderWhitelist() {
+    const container = document.getElementById('whitelistItems');
+    const empty     = document.getElementById('whitelistEmpty');
+    container.querySelectorAll('.wl-chip').forEach(el => el.remove());
+
+    if (_whitelist.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    _whitelist.forEach((email, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'wl-chip';
+      chip.innerHTML = `
+        <span class="wl-chip-email">✉️ ${email}</span>
+        <button class="wl-chip-remove" title="Remove" data-idx="${idx}">✕</button>
+      `;
+      chip.querySelector('.wl-chip-remove').addEventListener('click', () => {
+        _whitelist.splice(idx, 1);
+        renderWhitelist();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  function addWhitelist() {
+    const input = document.getElementById('whitelistInput');
+    const email = input.value.trim().toLowerCase();
+    if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast('Enter a valid email address.', 'error');
+      return;
+    }
+    if (_whitelist.includes(email)) {
+      showToast('Email already in the list.', 'error');
+      input.value = '';
+      return;
+    }
+    _whitelist.push(email);
+    renderWhitelist();
+    input.value = '';
+  }
+
+  document.getElementById('whitelistAddBtn').addEventListener('click', addWhitelist);
+  document.getElementById('whitelistInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addWhitelist();
+  });
+
+  function updateMaintStatusText(enabled) {
+    const el = document.getElementById('maintStatusText');
+    el.textContent = enabled
+      ? '🔴 Maintenance is ON — players are blocked'
+      : '🟢 Maintenance is OFF — site is live';
+    el.style.color = enabled ? '#ff8a8a' : '#14f195';
+  }
+
+  document.getElementById('maintToggle').addEventListener('change', function () {
+    updateMaintStatusText(this.checked);
+  });
+
+  async function loadMaintenance() {
+    try {
+      const res  = await fetch('/admin/api/maintenance');
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('maintToggle').checked = data.enabled;
+        _whitelist = data.whitelist || [];
+        updateMaintStatusText(data.enabled);
+        renderWhitelist();
+      }
+    } catch {
+      showToast('Failed to load maintenance settings.', 'error');
+    }
+  }
+  loadMaintenance();
+
+  document.getElementById('maintSaveBtn').addEventListener('click', async () => {
+    const btn     = document.getElementById('maintSaveBtn');
+    const enabled = document.getElementById('maintToggle').checked;
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    try {
+      const res  = await fetch('/admin/api/maintenance', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ enabled, whitelist: _whitelist }),
+      });
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(enabled ? '🔧 Maintenance mode ENABLED' : '✅ Maintenance mode DISABLED');
+        _whitelist = data.whitelist;
+        renderWhitelist();
+      } else {
+        showToast(data.error || 'Failed to save.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
 </script>
 
 </body>
