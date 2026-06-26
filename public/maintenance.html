@@ -12,36 +12,35 @@
 
     body {
       min-height: 100dvh;
-      background: #060614;
+      background: #0e0e1a;
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      background-image:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(153,69,255,.18) 0%, transparent 70%),
-        radial-gradient(ellipse 60% 40% at 50% 110%, rgba(20,241,149,.08) 0%, transparent 60%);
     }
 
-    /* Animated stars */
-    .stars {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
+    /* ── Background (same as dashboard) ── */
+    .bg-layer {
+      position: fixed; inset: 0;
+      background: url('images/bg2.png') repeat-x center bottom;
+      background-size: auto 100%;
+      animation: bgscroll 22s linear infinite;
       z-index: 0;
     }
-    .star {
-      position: absolute;
-      width: 2px; height: 2px;
-      background: #fff;
-      border-radius: 50%;
-      animation: twinkle var(--d) ease-in-out infinite;
-      opacity: 0;
+    .cloud-layer {
+      position: fixed; inset: 0;
+      background: url('images/cloud.gif') repeat-x top center;
+      background-size: auto 110px;
+      animation: bgscroll 38s linear infinite;
+      opacity: 0.35;
+      z-index: 1;
+      pointer-events: none;
     }
-    @keyframes twinkle {
-      0%, 100% { opacity: 0; transform: scale(1); }
-      50%       { opacity: var(--o); transform: scale(1.4); }
+    @keyframes bgscroll {
+      from { background-position-x: 0; }
+      to   { background-position-x: -2000px; }
     }
 
     .card {
@@ -55,6 +54,7 @@
       width: 92%;
       text-align: center;
       backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       box-shadow:
         0 0 0 1px rgba(255,255,255,.04) inset,
         0 32px 80px rgba(0,0,0,.65),
@@ -151,8 +151,8 @@
 </head>
 <body>
 
-  <!-- Stars background -->
-  <div class="stars" id="stars"></div>
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="cloud-layer"></div>
 
   <div class="card">
     <div class="logo-wrap">
@@ -178,19 +178,16 @@
   </div>
 
   <script>
-    // Generate random stars
-    const container = document.getElementById('stars');
-    for (let i = 0; i < 80; i++) {
-      const s = document.createElement('div');
-      s.className = 'star';
-      s.style.cssText = `
-        left: ${Math.random() * 100}%;
-        top:  ${Math.random() * 100}%;
-        --d:  ${1.5 + Math.random() * 3}s;
-        --o:  ${0.3 + Math.random() * 0.7};
-        animation-delay: ${Math.random() * 3}s;
-      `;
-      container.appendChild(s);
+    // Random background — same logic as dashboard
+    const BG = ['images/background-image.PNG', 'images/bg2.png', 'images/bg3.gif'];
+    const bg = BG[Math.floor(Math.random() * BG.length)];
+    const layer = document.getElementById('bgLayer');
+    const isFixed = bg.includes('background-image') || bg.endsWith('.gif');
+    layer.style.backgroundImage = `url('${bg}')`;
+    if (isFixed) {
+      layer.style.cssText += ';background-size:cover;background-repeat:no-repeat;background-position:center;animation:none';
+    } else {
+      layer.style.cssText += ';background-size:auto 100%;background-repeat:repeat-x;background-position:center bottom';
     }
   </script>
 </body>
