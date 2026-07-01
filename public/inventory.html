@@ -795,10 +795,13 @@
         const invData = await invRes.json();
         const meData  = await meRes.json();
 
-        // Slot 0: seeds stack (always first slot if user has any seeds)
+        // Slot 0: seeds stack, Slot 1: gold balance stack
         const seedCount = meData.seeds || 0;
+        const goldCount = meData.goldBalance || 0;
+        let slotIndex = 0;
+
         if (seedCount > 0) {
-          inventory[0] = {
+          inventory[slotIndex++] = {
             type:    'seeds',
             name:    'Seeds',
             qty:     seedCount,
@@ -808,10 +811,20 @@
           };
         }
 
+        if (goldCount > 0) {
+          inventory[slotIndex++] = {
+            type:    'gold',
+            name:    'Gold',
+            qty:     goldCount,
+            icon:    null,  // rendered as image
+            image:   'images/gold.png',
+            desc:    `You have ${goldCount.toLocaleString()} gold.`,
+          };
+        }
+
         if (invData.ok && Array.isArray(invData.inventory)) {
-          // Place API items into slots starting at 1 (slot 0 is seeds)
           invData.inventory.forEach((item, i) => {
-            const slot = seedCount > 0 ? i + 1 : i;
+            const slot = slotIndex + i;
             if (slot < 16) inventory[slot] = item;
           });
         }
@@ -994,6 +1007,29 @@
             badge.textContent = qty >= 1000 ? `x${(qty/1000).toFixed(1)}k` : `x${qty}`;
             slot.appendChild(badge);
 
+          } else if (item.type === 'gold') {
+            // Gold stack slot
+            const img = document.createElement('img');
+            img.src = 'images/gold.png';
+            img.alt = 'Gold';
+            img.style.cssText = 'width:72%;height:72%;object-fit:contain;image-rendering:pixelated;';
+            inner.appendChild(img);
+
+            slot.style.borderColor = '#ffd050';
+            slot.style.boxShadow   = 'inset 3px 3px 0px #020105, 0 0 10px #ffd05044';
+
+            // Quantity badge
+            const badge = document.createElement('span');
+            badge.style.cssText = `
+              position:absolute;bottom:3px;right:3px;
+              background:#4a3b1b;color:#ffd050;
+              font-size:.7rem;font-family:'VT323',monospace;font-weight:700;
+              padding:1px 5px;border:1px solid #ffd050;border-radius:3px;line-height:1.3;z-index:10;
+            `;
+            const qty = item.qty || 0;
+            badge.textContent = qty >= 1000 ? `x${(qty/1000).toFixed(1)}k` : `x${qty}`;
+            slot.appendChild(badge);
+
           } else if (item.type === 'nest') {
             // Nest item — show image
             const img = document.createElement('img');
@@ -1107,6 +1143,19 @@
         nameEl.textContent   = `Seeds ×${(item.qty || 0).toLocaleString()}`;
         dateEl.textContent   = '';
         payEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:rgba(76,175,80,.07);border:1px solid rgba(76,175,80,.2);border-radius:10px;padding:10px 14px;"><img src="images/seed.png" alt="Seed" style="width:22px;height:22px;object-fit:contain;image-rendering:pixelated;" /><div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Collected in gameplay</div><div style="font-size:1rem;font-weight:800;color:#6fff6f;">${(item.qty||0).toLocaleString()} Seeds</div></div></div><p style="font-size:.78rem;color:rgba(255,255,255,.45);margin-top:10px;line-height:1.5;">Seeds are dropped while playing.</p>`;
+        modal.style.display = 'flex';
+        return;
+      }
+      // ── Gold ──────────────────────────────────────────────────────────────
+      if (item.type === 'gold') {
+        box.style.border    = '2px solid #ffd050';
+        box.style.boxShadow = '0 0 24px #ffd05044';
+        img.style.display   = '';
+        img.src = 'images/gold.png'; img.alt = 'Gold'; img.style.border = '2px solid #ffd050';
+        rarityEl.textContent = 'consumable'; rarityEl.style.color = '#ffd050';
+        nameEl.textContent   = `Gold ×${(item.qty || 0).toLocaleString()}`;
+        dateEl.textContent   = '';
+        payEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,208,80,.07);border:1px solid rgba(255,208,80,.2);border-radius:10px;padding:10px 14px;"><img src="images/gold.png" alt="Gold" style="width:22px;height:22px;object-fit:contain;image-rendering:pixelated;" /><div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Pending Payout Balance</div><div style="font-size:1rem;font-weight:800;color:#ffd050;">${(item.qty||0).toLocaleString()} Gold</div></div></div><p style="font-size:.78rem;color:rgba(255,255,255,.45);margin-top:10px;line-height:1.5;">Pending Gold rewards from gameplay. Payouts are executed daily at 12:00 PM GMT+8 directly to your Solana wallet. Balances earned after 11:40 AM GMT+8 are rolled over to the next payout cycle.</p>`;
         modal.style.display = 'flex';
         return;
       }

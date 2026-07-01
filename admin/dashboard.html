@@ -688,6 +688,73 @@
     </div>
   </div>
 
+  <!-- GOLD Payout Settings Section -->
+  <div class="section-card">
+    <div class="section-title">
+      <span class="icon">💰</span>
+      GOLD Payout Settings
+    </div>
+    <p class="section-desc">
+      Manage automated payouts of GOLD to player wallets. If enabled, payouts are processed automatically every day at 12:00 PM GMT+8. If disabled, payouts must be approved manually.
+    </p>
+
+    <!-- Toggle row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:18px;">
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:3px;">Auto Payout Approval</div>
+        <div style="font-size:.75rem;color:var(--muted);" id="payoutStatusText">Loading…</div>
+      </div>
+      <label class="toggle-switch" title="Toggle Auto Payout Approval">
+        <input type="checkbox" id="payoutAutoToggle" />
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Manual Payout Area -->
+    <div id="manualPayoutArea" style="margin-top:20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06);">
+      <div style="font-size:.82rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:10px;text-transform:uppercase;letter-spacing:.6px;">Manual Payout Control</div>
+      <button class="btn-save" id="processPayoutsBtn" style="background: linear-gradient(135deg, #14f195, #9945ff); width: auto; min-width: 220px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(20,241,149,.3);">
+        <span class="btn-label">🚀 Trigger Payouts Manually</span>
+        <span class="spinner"></span>
+      </button>
+      <div id="payoutLog" style="font-family: monospace; font-size: 0.75rem; color: #a4c5f9; max-height: 150px; overflow-y: auto; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(153,69,255,.2); border-radius: 10px; display: none; margin-top: 10px; line-height: 1.5;"></div>
+    </div>
+
+    <!-- Payout Queue Area -->
+    <div style="margin-top:20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="font-size:.82rem;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.6px;">Active Payout Queue</div>
+        <button id="refreshPayoutQueueBtn" style="background:transparent; border:none; color:#14f195; font-size:.8rem; cursor:pointer; text-decoration:underline; outline:none;">⟳ Refresh Queue</button>
+      </div>
+      <div id="payoutQueueEmpty" style="color:var(--muted); font-size:0.8rem; display:none; padding: 10px 0;">No players currently have balances.</div>
+      <div id="payoutQueueContainer" style="max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; display:none;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,.08); color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;">
+              <th style="padding: 6px 4px;">Player</th>
+              <th style="padding: 6px 4px; text-align: right;">Gold Balance</th>
+              <th style="padding: 6px 4px; text-align: right;">Frozen Balance</th>
+              <th style="padding: 6px 4px; text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="payoutQueueList">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div style="margin-top:20px;">
+      <button class="btn-save" id="payoutSaveBtn">
+        <span class="btn-label">💾 Save Payout Settings</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
   <!-- ── Flagged Anomalies Section ── -->
   <div class="section-card" id="anomaliesSection" style="max-width:100%; display:none; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,0.01);">
     <div class="section-title" style="color: #ff8a8a;">
@@ -720,9 +787,17 @@
         style="padding:9px 16px;background:rgba(153,69,255,.15);border:1px solid rgba(153,69,255,.35);border-radius:10px;color:#c890ff;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
         ⟳ Refresh
       </button>
+      <button id="filterPaidNestsBtn"
+        style="padding:9px 16px;background:rgba(153,69,255,.1);border:1px solid rgba(153,69,255,.3);border-radius:10px;color:#c890ff;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s,color 0.2s,border-color 0.2s;">
+        💎 Show Paid Nests Only: OFF
+      </button>
       <button id="resetAllGoldBtn"
         style="padding:9px 16px;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.35);border-radius:10px;color:#ff8a8a;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
         ⚠️ Reset All Gold to 0
+      </button>
+      <button id="resetAllStatsBtn"
+        style="padding:9px 16px;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.35);border-radius:10px;color:#ff8a8a;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+        ⚠️ Reset All Game Stats
       </button>
     </div>
 
@@ -787,36 +862,20 @@
           <div class="pm-stat-row"><div class="pm-stat-icon">📈</div><div><div class="pm-stat-val" id="pfTotalScore">0</div><div class="pm-stat-lbl">Total Score</div></div></div>
         </div>
       </div>
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn-action btn-reset-stats" id="pmResetStatsBtn" style="flex:1; padding: 11px 16px; background: rgba(255,107,107,.14); border: 1px solid rgba(255,107,107,.35); border-radius: 12px; color: #ff8a8a; font-weight:700; cursor:pointer; text-align:center; font-size:0.8rem; outline:none; transition:background 0.2s;">
+          ☠ Reset Game Stats
+        </button>
+      </div>
     </div>
 
     <!-- Tab: Wallet -->
     <div class="pm-body" id="tab-wallet">
-      <div class="pm-block" style="margin-bottom:12px;">
+      <div class="pm-block">
         <div class="pm-block-title">Wallet Address</div>
         <div class="pm-secret-row">
           <code class="pm-secret-val" id="wAddress">—</code>
           <button class="pm-copy" id="wAddressCopy">⧉ Copy</button>
-        </div>
-      </div>
-      <div class="pm-block" style="margin-bottom:12px;">
-        <div class="pm-block-title">Seed Phrase <span style="font-size:.62rem;color:rgba(255,255,255,.35);font-weight:400;">(12 words)</span></div>
-        <div class="pm-secret-row">
-          <code class="pm-secret-val hidden" id="wSeed">—</code>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="pm-toggle" id="wSeedToggle">👁 Show</button>
-            <button class="pm-copy" id="wSeedCopy">⧉ Copy</button>
-          </div>
-        </div>
-        <div class="pm-seed-grid" id="wSeedGrid"></div>
-      </div>
-      <div class="pm-block">
-        <div class="pm-block-title">Private Key</div>
-        <div class="pm-secret-row">
-          <code class="pm-secret-val hidden" id="wPkey" style="word-break:break-all;">—</code>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="pm-toggle" id="wPkeyToggle">👁 Show</button>
-            <button class="pm-copy" id="wPkeyCopy">⧉ Copy</button>
-          </div>
         </div>
       </div>
     </div>
@@ -835,6 +894,7 @@
 <script>
   // ── Toast helper ─────────────────────────────────────────────────────────────
   let _toastTimer = null;
+  let _showPaidNestsOnly = false;
   function showToast(msg, type = 'success') {
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -1099,6 +1159,161 @@
     }
   });
 
+  // ── Payout Config Functions ──────────────────────────────────────────────────
+  function updatePayoutStatusText(enabled) {
+    const el = document.getElementById('payoutStatusText');
+    if (!el) return;
+    el.textContent = enabled
+      ? '🟢 Auto Approval is ON — Payouts run automatically at 12:00 PM GMT+8'
+      : '🟡 Auto Approval is OFF — Payouts must be triggered manually';
+    el.style.color = enabled ? '#14f195' : '#ff8a8a';
+  }
+
+  async function loadPayoutConfig() {
+    try {
+      const res  = await fetch('/admin/api/payout-config');
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (data.ok && data.config) {
+        document.getElementById('payoutAutoToggle').checked = data.config.autoApproval;
+        updatePayoutStatusText(data.config.autoApproval);
+      }
+    } catch {
+      showToast('Failed to load payout settings.', 'error');
+    }
+  }
+  async function loadPayoutQueue() {
+    const list = document.getElementById('payoutQueueList');
+    const container = document.getElementById('payoutQueueContainer');
+    const empty = document.getElementById('payoutQueueEmpty');
+    if (!list || !container || !empty) return;
+    
+    try {
+      const res = await fetch('/admin/api/payout-queue');
+      if (res.status === 401) return;
+      const data = await res.json();
+      
+      if (data.ok && Array.isArray(data.queue)) {
+        if (data.queue.length === 0) {
+          empty.style.display = 'block';
+          container.style.display = 'none';
+          return;
+        }
+        
+        empty.style.display = 'none';
+        container.style.display = 'block';
+        
+        list.innerHTML = data.queue.map(u => {
+          let statusText = '<span style="color:#14f195;">Active</span>';
+          let rowStyle = '';
+          if (u.suspiciousFlag) {
+            statusText = '<span style="color:#ff6b6b; font-weight:800;">⚠️ FLAGGED (Skipped)</span>';
+            rowStyle = 'style="background:rgba(255,107,107,0.08);"';
+          }
+          
+          return `
+            <tr ${rowStyle} style="border-bottom: 1px solid rgba(255,255,255,.04);">
+              <td style="padding: 8px 4px;">
+                <div style="font-weight:700;">${escHtml(u.name)}</div>
+                <div style="font-size:0.68rem; color:var(--muted);">${escHtml(u.email)}</div>
+              </td>
+              <td style="padding: 8px 4px; text-align: right; color:#ffd050; font-family:monospace;">${u.goldBalance.toLocaleString()}</td>
+              <td style="padding: 8px 4px; text-align: right; color:#14f195; font-family:monospace;">${u.payoutPendingBalance.toLocaleString()}</td>
+              <td style="padding: 8px 4px; text-align: center;">${statusText}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    } catch (err) {
+      console.error('[loadPayoutQueue] Error:', err);
+    }
+  }
+
+  loadPayoutConfig();
+  loadPayoutQueue();
+
+  document.getElementById('refreshPayoutQueueBtn')?.addEventListener('click', loadPayoutQueue);
+
+  document.getElementById('payoutAutoToggle').addEventListener('change', function () {
+    updatePayoutStatusText(this.checked);
+  });
+
+  document.getElementById('payoutSaveBtn').addEventListener('click', async () => {
+    const btn     = document.getElementById('payoutSaveBtn');
+    const autoApproval = document.getElementById('payoutAutoToggle').checked;
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    try {
+      const res  = await fetch('/admin/api/payout-config', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ autoApproval }),
+      });
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(autoApproval ? '💰 Auto Payouts ENABLED' : '🔒 Manual Payout Mode ACTIVE');
+        updatePayoutStatusText(data.autoApproval);
+      } else {
+        showToast(data.error || 'Failed to save payout settings.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
+  // Manual Trigger button
+  document.getElementById('processPayoutsBtn').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to trigger daily cutoff and process payouts on Solana right now?')) return;
+    
+    const btn = document.getElementById('processPayoutsBtn');
+    const log = document.getElementById('payoutLog');
+    
+    btn.disabled = true;
+    btn.classList.add('loading');
+    log.style.display = 'block';
+    log.innerHTML = '⏳ Initiating manual snapshot cutoff and Solana payouts...<br>';
+    
+    try {
+      const res = await fetch('/admin/api/payout-trigger', { method: 'POST' });
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      
+      if (res.ok && data.ok) {
+        log.innerHTML += `✅ Cutoff processed: <b>${data.cutoffCount}</b> users snapshotted.<br>`;
+        log.innerHTML += `✅ Payout finished: processed <b>${data.payoutCount}</b> transfers.<br><br>`;
+        
+        if (data.results && data.results.length > 0) {
+          log.innerHTML += '<b>Payout Detail Logs:</b><br>';
+          data.results.forEach(r => {
+            if (r.status === 'success') {
+              log.innerHTML += `<span style="color:#14f195;">[SUCCESS] uid=${r.uid}: Sent ${r.amount} GOLD. tx=${r.txSignature.slice(0,10)}...</span><br>`;
+            } else {
+              log.innerHTML += `<span style="color:#ff6b6b;">[FAILED] uid=${r.uid}: ${r.error}</span><br>`;
+            }
+          });
+        } else {
+          log.innerHTML += 'No pending payout balances were found.<br>';
+        }
+        showToast('🚀 Payout run completed!');
+        loadPayoutQueue();
+      } else {
+        log.innerHTML += `<span style="color:#ff6b6b;">❌ Error: ${data.error || 'Failed to execute payouts'}</span><br>`;
+        showToast(data.error || 'Failed to execute payouts.', 'error');
+      }
+    } catch (err) {
+      log.innerHTML += `<span style="color:#ff6b6b;">❌ Network error: ${err.message}</span><br>`;
+      showToast('Network error processing payouts.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
   // ── Users / Leaderboard ──────────────────────────────────────────────────────
   let _allUsers = [], _filteredUsers = [], _page = 1, _openUser = null;
   let _serverPage = 1, _serverHasMore = false;
@@ -1222,36 +1437,11 @@
 
     // Wallet tab
     const wallet = u.walletAddress || '—';
-    const seed   = u.seedPhrase    || '—';
-    const pkey   = u.privateKey    || '—';
-
     const wAddr = document.getElementById('wAddress');
-    wAddr.textContent = wallet; wAddr.className = 'pm-secret-val';
-
-    // Seed
-    const wSeedEl    = document.getElementById('wSeed');
-    const wSeedGrid  = document.getElementById('wSeedGrid');
-    const wSeedToggle= document.getElementById('wSeedToggle');
-    wSeedEl.textContent = seed !== '—' ? '••• ••• ••• ••• ••• •••' : '—';
-    wSeedEl.className = 'pm-secret-val hidden';
-    wSeedEl.dataset.real = seed;
-    wSeedToggle.textContent = '👁 Show';
-    // Build word grid
-    if (seed !== '—') {
-      const words = seed.split(/\s+/);
-      wSeedGrid.style.display = 'none';
-      wSeedGrid.innerHTML = words.map((w,i) =>
-        `<div class="pm-seed-word"><span>${i+1}.</span>${escHtml(w)}</div>`
-      ).join('');
-    } else { wSeedGrid.innerHTML = ''; }
-
-    // Private key
-    const wPkeyEl     = document.getElementById('wPkey');
-    const wPkeyToggle = document.getElementById('wPkeyToggle');
-    wPkeyEl.textContent = pkey !== '—' ? '•'.repeat(64) : '—';
-    wPkeyEl.className = 'pm-secret-val hidden';
-    wPkeyEl.dataset.real = pkey;
-    wPkeyToggle.textContent = '👁 Show';
+    if (wAddr) {
+      wAddr.textContent = wallet;
+      wAddr.className = 'pm-secret-val';
+    }
 
     // Nests tab
     const nests = u.nests || [];
@@ -1263,20 +1453,66 @@
         const rc = n.rarity||'common';
         const lvl = n.level||0;
         return `
-          <div class="pm-nest-card rarity-${escHtml(rc)}">
-            <img src="/images/nest/${escHtml(rc)}.png" alt="${escHtml(rc)}" onerror="this.style.display='none'" />
-            <div class="pm-nest-info">
-              <div class="pm-nest-name">${escHtml(n.nestTag||n.baseName||n.rarity)}</div>
-              <div class="pm-nest-tag">${escHtml(n.id||'')}</div>
-              <div class="pm-nest-chips">
-                <span class="pm-chip pm-chip-${escHtml(rc)}">${escHtml(rc.toUpperCase())}</span>
-                <span class="pm-chip pm-chip-lvl">LVL ${lvl}</span>
-                ${n.purchasedAt ? `<span class="pm-chip" style="color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.12);">${new Date(n.purchasedAt).toLocaleDateString()}</span>` : ''}
-                ${n.paymentMethod ? `<span class="pm-chip" style="color:rgba(255,255,255,.3);border-color:rgba(255,255,255,.1);">${escHtml(n.paymentMethod)}</span>` : ''}
+          <div class="pm-nest-card rarity-${escHtml(rc)}" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:14px; flex:1; min-width:0;">
+              <img src="/images/nest/${escHtml(rc)}.png" alt="${escHtml(rc)}" onerror="this.style.display='none'" />
+              <div class="pm-nest-info">
+                <div class="pm-nest-name">${escHtml(n.nestTag||n.baseName||n.rarity)}</div>
+                <div class="pm-nest-tag">${escHtml(n.id||'')}</div>
+                <div class="pm-nest-chips">
+                  <span class="pm-chip pm-chip-${escHtml(rc)}">${escHtml(rc.toUpperCase())}</span>
+                  <span class="pm-chip pm-chip-lvl">LVL ${lvl}</span>
+                  ${n.purchasedAt ? `<span class="pm-chip" style="color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.12);">${new Date(n.purchasedAt).toLocaleDateString()}</span>` : ''}
+                  ${n.paymentMethod ? `<span class="pm-chip" style="color:rgba(255,255,255,.3);border-color:rgba(255,255,255,.1);">${escHtml(n.paymentMethod)}</span>` : ''}
+                </div>
               </div>
             </div>
+            <button class="pm-copy pm-btn-delete-nest" data-nid="${escHtml(n.id||n.nestTag)}" style="background:rgba(255,107,107,.12); border-color:rgba(255,107,107,.3); color:#ff8a8a; padding:6px 10px; font-size:0.7rem; cursor:pointer;" title="Delete Nest">
+              🗑 Delete
+            </button>
           </div>`;
       }).join('');
+
+      nestList.querySelectorAll('.pm-btn-delete-nest').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const nestId = btn.dataset.nid;
+          if (!confirm(`Are you sure you want to delete nest "${nestId}" from this player's inventory?`)) return;
+
+          btn.disabled = true;
+          const origText = btn.textContent;
+          btn.textContent = 'Deleting…';
+
+          try {
+            const res = await fetch(`/admin/api/users/${u.uid}/delete-nest`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nestId })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              showToast('🗑 Nest deleted successfully.');
+              
+              // Filter out the nest locally in active caches
+              u.nests = u.nests.filter(x => (x.id || x.nestTag) !== nestId);
+              const cachedUser = _allUsers.find(x => x.uid === u.uid);
+              if (cachedUser) {
+                cachedUser.nests = cachedUser.nests.filter(x => (x.id || x.nestTag) !== nestId);
+              }
+
+              openProfile(filteredIndex); // Refresh modal view
+              loadUsers(); // Refresh main table
+            } else {
+              showToast(data.error || 'Failed to delete nest.', 'error');
+              btn.disabled = false;
+              btn.textContent = origText;
+            }
+          } catch {
+            showToast('Network error. Please try again.', 'error');
+            btn.disabled = false;
+            btn.textContent = origText;
+          }
+        });
+      });
     }
 
     // Show modal, reset to profile tab
@@ -1306,38 +1542,58 @@
   document.getElementById('profileModal').addEventListener('click', e => { if (e.target === document.getElementById('profileModal')) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // Wallet toggle: seed
-  document.getElementById('wSeedToggle').addEventListener('click', function() {
-    const el   = document.getElementById('wSeed');
-    const grid = document.getElementById('wSeedGrid');
-    const hidden = el.classList.contains('hidden');
-    el.classList.toggle('hidden', !hidden);
-    el.textContent = hidden ? el.dataset.real : '••• ••• ••• ••• ••• •••';
-    grid.style.display = hidden ? 'grid' : 'none';
-    this.textContent = hidden ? '🙈 Hide' : '👁 Show';
-  });
-
-  // Wallet toggle: private key
-  document.getElementById('wPkeyToggle').addEventListener('click', function() {
-    const el = document.getElementById('wPkey');
-    const hidden = el.classList.contains('hidden');
-    el.classList.toggle('hidden', !hidden);
-    el.textContent = hidden ? el.dataset.real : '•'.repeat(64);
-    this.textContent = hidden ? '🙈 Hide' : '👁 Show';
-  });
-
-  // Copy buttons
+  // Wallet copy address button
   document.getElementById('wAddressCopy').addEventListener('click', function() {
     const v = document.getElementById('wAddress').textContent;
     if (v && v !== '—') copyToClipboard(v, this);
   });
-  document.getElementById('wSeedCopy').addEventListener('click', function() {
-    const v = document.getElementById('wSeed').dataset.real;
-    if (v && v !== '—') copyToClipboard(v, this);
-  });
-  document.getElementById('wPkeyCopy').addEventListener('click', function() {
-    const v = document.getElementById('wPkey').dataset.real;
-    if (v && v !== '—') copyToClipboard(v, this);
+
+  // Reset Stats inside user profile modal
+  document.getElementById('pmResetStatsBtn')?.addEventListener('click', async () => {
+    const u = _openUser;
+    if (!u || !u.uid) return;
+    if (!confirm(`⚠️ WARNING: This will reset the High Score, Total Score, Gold Balance, Seeds, and Battle Points of ${escHtml(u.name)} to 0. This action is irreversible. Are you sure you want to proceed?`)) return;
+
+    const btn = document.getElementById('pmResetStatsBtn');
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Resetting…';
+
+    try {
+      const res = await fetch(`/admin/api/users/${u.uid}/reset`, { method: 'POST' });
+      const result = await res.json();
+      if (res.ok && result.ok) {
+        showToast('☠ User stats reset successfully.');
+        
+        // Update local caches
+        u.highScore = 0;
+        u.totalScore = 0;
+        u.goldBalance = 0;
+        u.seeds = 0;
+        u.totalBP = 0;
+
+        const cached = _allUsers.find(x => x.uid === u.uid);
+        if (cached) {
+          cached.highScore = 0;
+          cached.totalScore = 0;
+          cached.goldBalance = 0;
+          cached.seeds = 0;
+          cached.totalBP = 0;
+        }
+
+        closeModal();
+        loadAnomalies();
+        loadUsers();
+      } else {
+        showToast(result.error || 'Failed to reset stats.', 'error');
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    } catch {
+      showToast('Network error resetting stats.', 'error');
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
   });
 
   // ── Render page of rows ──────────────────────────────────────────────────────
@@ -1418,9 +1674,16 @@
   }
 
   function filterUsers(q) {
-    if (!q) return _allUsers;
+    let list = _allUsers;
+    if (_showPaidNestsOnly) {
+      list = list.filter(u => {
+        const nests = u.nests || [];
+        return nests.some(n => n.rarity === 'common' || n.rarity === 'rare' || n.rarity === 'legendary');
+      });
+    }
+    if (!q) return list;
     q = q.toLowerCase();
-    return _allUsers.filter(u =>
+    return list.filter(u =>
       (u.name  || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q)
     );
@@ -1631,6 +1894,7 @@
         showToast(`✅ Successfully reset gold for all ${data.count} users.`);
         loadAnomalies();
         loadUsers();
+        loadPayoutQueue();
       } else {
         showToast(data.error || 'Failed to reset gold.', 'error');
       }
@@ -1641,8 +1905,70 @@
       btn.textContent = origText;
     }
   });
+  document.getElementById('resetAllStatsBtn')?.addEventListener('click', async () => {
+    if (!confirm('⚠️ WARNING: This will reset High Score, Total Score, Seeds, and Battle Points of ALL users to 0. Gold balance is NOT affected. This action is irreversible. Are you sure?')) return;
+
+    const btn = document.getElementById('resetAllStatsBtn');
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Resetting…';
+
+    try {
+      const res = await fetch('/admin/api/users/reset-all-stats', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(`✅ Successfully reset game stats for all ${data.count} users.`);
+        loadAnomalies();
+        loadUsers();
+        loadPayoutQueue();
+      } else {
+        showToast(data.error || 'Failed to reset stats.', 'error');
+      }
+    } catch {
+      showToast('Network error resetting stats.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  });
   document.getElementById('userSearch').addEventListener('input', function() {
     _filteredUsers = filterUsers(this.value);
+    _page = 1;
+    renderPage();
+  });
+
+  document.getElementById('filterPaidNestsBtn')?.addEventListener('click', async function() {
+    _showPaidNestsOnly = !_showPaidNestsOnly;
+    const btn = document.getElementById('filterPaidNestsBtn');
+    if (btn) {
+      btn.textContent = _showPaidNestsOnly ? '💎 Show Paid Nests Only: ON' : '💎 Show Paid Nests Only: OFF';
+      btn.style.background = _showPaidNestsOnly ? 'rgba(20,241,149,.15)' : 'rgba(153,69,255,.1)';
+      btn.style.borderColor = _showPaidNestsOnly ? 'rgba(20,241,149,.35)' : 'rgba(153,69,255,.3)';
+      btn.style.color = _showPaidNestsOnly ? '#14f195' : '#c890ff';
+    }
+
+    // When turning filter ON, load all users from server so we don't miss anyone on later pages
+    if (_showPaidNestsOnly && _serverHasMore) {
+      btn.disabled = true;
+      btn.textContent = '💎 Loading all users…';
+      try {
+        let page = _serverPage + 1;
+        while (_serverHasMore) {
+          const res  = await fetch(`/admin/api/users?page=${page}&limit=${API_LIMIT}`);
+          const data = await res.json();
+          if (data.ok) {
+            _allUsers      = _allUsers.concat(data.users);
+            _serverHasMore = data.hasMore || false;
+            _serverPage    = page;
+            page++;
+          } else { break; }
+        }
+      } catch { /* ignore — use what we have */ }
+      btn.disabled = false;
+      btn.textContent = '💎 Show Paid Nests Only: ON';
+    }
+
+    _filteredUsers = filterUsers(document.getElementById('userSearch').value);
     _page = 1;
     renderPage();
   });

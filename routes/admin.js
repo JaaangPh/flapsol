@@ -3,6 +3,7 @@ const bcrypt     = require('bcryptjs');
 const router     = express.Router();
 const path       = require('path');
 const { getFirestore } = require('../config/firebase');
+const { getPayoutConfig, updatePayoutConfig, runCutoff, runPayout } = require('../utils/payoutScheduler');
 
 // ── Admin session middleware ──────────────────────────────────────────────────
 // Uses a separate cookie (adminSess) so it's completely isolated from
@@ -199,16 +200,10 @@ router.get('/api/users', requireAdmin, async (req, res) => {
 
     const users = pageDocs.map(doc => {
       const d  = doc.data();
-      let walletAddress = null, seedPhrase = null, privateKey = null;
+      let walletAddress = null;
 
       try { if (d.walletPublicKey)  walletAddress = decrypt(d.walletPublicKey); }
       catch (e) { console.error(`[admin/users] decrypt walletPublicKey uid=${doc.id}`, e.message); }
-
-      try { if (d.seedPhrase)       seedPhrase    = decrypt(d.seedPhrase); }
-      catch (e) { console.error(`[admin/users] decrypt seedPhrase uid=${doc.id}`, e.message); }
-
-      try { if (d.walletPrivateKey) privateKey    = decrypt(d.walletPrivateKey); }
-      catch (e) { console.error(`[admin/users] decrypt walletPrivateKey uid=${doc.id}`, e.message); }
 
       return {
         uid:                doc.id,
@@ -234,8 +229,6 @@ router.get('/api/users', requireAdmin, async (req, res) => {
         suspiciousFlagAt:   d.suspiciousFlagAt   || null,
         nests:              (d.inventory || []).filter(i => i.type === 'nest'),
         walletAddress,
-        seedPhrase,
-        privateKey,
       };
     });
 
@@ -325,6 +318,47 @@ router.post('/api/users/:uid/clear-flag', requireAdmin, async (req, res) => {
   }
 });
 
+// ── POST /admin/api/users/reset-all-stats ─────────────────────────────────────
+router.post('/api/users/reset-all-stats', requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    const snap = await db.collection('users').get();
+
+    const docs = snap.docs;
+    let count = 0;
+
+    // Process in chunks of 400 to stay within Firestore batch limit (max 500)
+    for (let i = 0; i < docs.length; i += 400) {
+      const chunk = docs.slice(i, i + 400);
+      const batch = db.batch();
+      for (const doc of chunk) {
+        batch.update(doc.ref, {
+          highScore: 0,
+          totalScore: 0,
+          seeds: 0,
+          totalBP: 0,
+          level: 0,
+          currentExp: 0,
+          requiredExp: 200,
+          totalAttemptsToday: 0,
+          lastScore: 0,
+          suspiciousFlag: false,
+          suspiciousReason: null,
+          suspiciousFlagAt: null
+        });
+        count++;
+      }
+      await batch.commit();
+    }
+
+    console.log(`[admin/reset-all-stats] Reset game stats for all ${count} users.`);
+    return res.json({ ok: true, count });
+  } catch (err) {
+    console.error('[admin/api/reset-all-stats]', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
 // ── POST /admin/api/users/:uid/reset ──────────────────────────────────────────
 router.post('/api/users/:uid/reset', requireAdmin, async (req, res) => {
   try {
@@ -337,16 +371,19 @@ router.post('/api/users/:uid/reset', requireAdmin, async (req, res) => {
     await ref.update({
       highScore: 0,
       totalScore: 0,
-      goldBalance: 0,
-      clashBalance: 0,
       seeds: 0,
       totalBP: 0,
+      level: 0,
+      currentExp: 0,
+      requiredExp: 200,
+      totalAttemptsToday: 0,
+      lastScore: 0,
       suspiciousFlag: false,
       suspiciousReason: null,
       suspiciousFlagAt: null
     });
 
-    console.log(`[admin/reset] Reset stats for uid=${uid}`);
+    console.log(`[admin/reset] Reset game stats for uid=${uid}`);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[admin/api/reset]', err);
@@ -420,6 +457,135 @@ router.post('/api/swap-config', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[admin/api/swap-config POST]', err);
     res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── GET /admin/api/payout-config ──────────────────────────────────────────────
+router.get('/api/payout-config', requireAdmin, async (_req, res) => {
+  try {
+    const config = await getPayoutConfig();
+    return res.json({ ok: true, config });
+  } catch (err) {
+    console.error('[admin/api/payout-config GET]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── GET /admin/api/payout-queue ───────────────────────────────────────────────
+router.get('/api/payout-queue', requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    const snap = await db.collection('users').get();
+    
+    const queue = [];
+    snap.docs.forEach(doc => {
+      const u = doc.data();
+      const goldBalance = u.goldBalance || 0;
+      const pendingBalance = u.payoutPendingBalance || 0;
+      
+      if (goldBalance > 0 || pendingBalance > 0) {
+        queue.push({
+          uid: doc.id,
+          name: u.name || 'Unknown',
+          email: u.email || 'No email',
+          goldBalance,
+          payoutPendingBalance: pendingBalance,
+          suspiciousFlag: !!u.suspiciousFlag
+        });
+      }
+    });
+    
+    return res.json({ ok: true, queue });
+  } catch (err) {
+    console.error('[admin/api/payout-queue GET]', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+// ── POST /admin/api/payout-config ─────────────────────────────────────────────
+router.post('/api/payout-config', requireAdmin, async (req, res) => {
+  try {
+    const { autoApproval } = req.body;
+    if (typeof autoApproval !== 'boolean') {
+      return res.status(400).json({ error: 'autoApproval must be a boolean.' });
+    }
+
+    const success = await updatePayoutConfig({ autoApproval });
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to update payout configuration.' });
+    }
+
+    console.log(`[admin/api/payout-config] autoApproval=${autoApproval}`);
+    return res.json({ ok: true, autoApproval });
+  } catch (err) {
+    console.error('[admin/api/payout-config POST]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/payout-trigger ────────────────────────────────────────────
+// Triggers daily cutoff and daily payout manually.
+router.post('/api/payout-trigger', requireAdmin, async (_req, res) => {
+  try {
+    console.log('[admin] Manual payout triggered by admin.');
+    
+    // 1. Run cutoff snapshot to copy goldBalance to payoutPendingBalance
+    const cutoffRes = await runCutoff();
+    if (!cutoffRes.success) {
+      return res.status(500).json({ error: 'Cutoff snapshot failed: ' + cutoffRes.error });
+    }
+    
+    // 2. Process payouts to transfer pending balances on-chain
+    const payoutRes = await runPayout();
+    if (!payoutRes.success) {
+      return res.status(500).json({ error: 'Payout execution failed: ' + payoutRes.error, results: payoutRes.results });
+    }
+    
+    return res.json({
+      ok: true,
+      cutoffCount: cutoffRes.count,
+      payoutCount: payoutRes.count,
+      results: payoutRes.results
+    });
+  } catch (err) {
+    console.error('[admin/api/payout-trigger POST]', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+// ── POST /admin/api/users/:uid/delete-nest ────────────────────────────────────
+// Deletes a specific nest from a user's inventory
+router.post('/api/users/:uid/delete-nest', requireAdmin, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { nestId } = req.body;
+    if (!nestId) {
+      return res.status(400).json({ error: 'nestId is required.' });
+    }
+
+    const db = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const data = doc.data();
+    const inventory = data.inventory || [];
+
+    // Filter out the nest with the given ID
+    const newInventory = inventory.filter(item => {
+      if (item.type !== 'nest') return true;
+      const id = item.id || item.nestTag;
+      return id !== nestId;
+    });
+
+    await ref.update({ inventory: newInventory });
+    console.log(`[admin/delete-nest] Deleted nest=${nestId} from uid=${uid}`);
+    return res.json({ ok: true, count: newInventory.length });
+  } catch (err) {
+    console.error('[admin/api/users/:uid/delete-nest POST]', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
 

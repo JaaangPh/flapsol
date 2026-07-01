@@ -213,6 +213,11 @@ app.use((_req, res) => res.redirect('/'));
 // Always listen — Vercel overrides this with its own handler via module.exports
 app.listen(PORT, () => {
   console.log(`\n✅  SolClash running → http://localhost:${PORT}\n`);
+  
+  // Start daily payout scheduler check (every 60 seconds)
+  const { checkSchedule } = require('./utils/payoutScheduler');
+  setInterval(checkSchedule, 60 * 1000);
+  console.log('⏰  Daily Payout Scheduler initialized.');
 });
 
 module.exports = app;

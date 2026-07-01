@@ -67,6 +67,7 @@ let maxEnergy       = 1;
 let collectibles      = [];   // { el, x, y, type:'seed'|'gold', collected }
 let seedsCollected    = 0;
 let goldCollected     = 0;
+let goldItemsCollected = 0;
 const COLLECTIBLE_SIZE = 28;  // px
 
 // ── Nest-based spawn rates — fetched from server before each game session ─────
@@ -381,6 +382,7 @@ function startGame() {
   collectibles   = [];
   seedsCollected = 0;
   goldCollected  = 0;
+  goldItemsCollected = 0;
 
   const goExpContainer = document.getElementById('goExpContainer');
   if (goExpContainer) goExpContainer.style.display = 'none';
@@ -434,7 +436,7 @@ async function endGame() {
       const scoreRes = await fetch('/api/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected }),
+        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected, goldItemsCollected }),
       });
       if (scoreRes.ok) scoreData = await scoreRes.json();
     } catch (err) {
@@ -447,7 +449,7 @@ async function endGame() {
       const rewardRes = await fetch('/api/game/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected }),
+        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected, goldItemsCollected }),
       });
       if (rewardRes.ok) rewardData = await rewardRes.json();
     } catch (err) {
@@ -720,19 +722,26 @@ function updateCollectibles() {
 
     if (hit) {
       c.collected = true;
-      if (c.type === 'seed') seedsCollected++;
-      if (c.type === 'gold') goldCollected++;
-      showCollectPop(c.type, c.x + COLLECTIBLE_SIZE / 2, c.y);
+      let amount = 1;
+      if (c.type === 'seed') {
+        seedsCollected++;
+      }
+      if (c.type === 'gold') {
+        amount = Math.floor(Math.random() * 501) + 500; // random 500 - 1000 goldbalance
+        goldCollected += amount;
+        goldItemsCollected++;
+      }
+      showCollectPop(c.type, c.x + COLLECTIBLE_SIZE / 2, c.y, amount);
       c.el.remove();
       collectibles.splice(i, 1);
     }
   }
 }
 
-function showCollectPop(type, x, y) {
+function showCollectPop(type, x, y, amount = 1) {
   const el = document.createElement('div');
   el.className   = 'collect-pop collect-pop-' + type;
-  el.textContent = type === 'seed' ? '🌱 +1' : '🪙 +1';
+  el.textContent = type === 'seed' ? `🌱 +${amount}` : `🪙 +${amount}`;
   el.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:200;pointer-events:none;`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 700);

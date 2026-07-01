@@ -484,7 +484,7 @@
         document.getElementById('expVal').textContent  = `${cur} / ${req}`;
         document.getElementById('expBar').style.width  = Math.min(100, Math.round(cur / req * 100)) + '%';
 
-        document.getElementById('goldBalance').textContent = (u.goldBalance || 0).toLocaleString();
+        document.getElementById('goldBalance').textContent = '0';
         document.getElementById('totalBP').textContent      = (u.totalBP      || 0).toLocaleString();
         if (document.getElementById('highScore')) {
           document.getElementById('highScore').textContent  = (u.highScore    || 0).toLocaleString();
@@ -505,6 +505,13 @@
             .then(d => {
               if (typeof d.balance === 'number')
                 document.getElementById('walletBalance').textContent = d.balance.toFixed(4) + ' SOL';
+            }).catch(() => {});
+
+          fetch('/api/gold-balance/' + _walletAddr)
+            .then(r => r.json())
+            .then(d => {
+              if (typeof d.balance === 'number')
+                document.getElementById('goldBalance').textContent = d.balance.toLocaleString();
             }).catch(() => {});
         }
 

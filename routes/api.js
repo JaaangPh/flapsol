@@ -7,6 +7,7 @@ const {
 } = require('@solana/web3.js');
 const bs58        = require('bs58');
 const { decrypt } = require('../utils/wallet');
+const { getSPLTokenBalance } = require('../utils/solanaToken');
 
 function getSolanaConnection() {
   const rpc = process.env.SOLANA_RPC_URL
@@ -24,7 +25,7 @@ function requireAuth(req, res, next) {
 // ── POST /api/score ───────────────────────────────────────────────────────────
 router.post('/score', requireAuth, async (req, res) => {
   try {
-    const { score, duration, goldCollected = 0, seedsCollected = 0 } = req.body;
+    const { score, duration, goldCollected = 0, seedsCollected = 0, goldItemsCollected = 0 } = req.body;
     if (typeof score !== 'number' || score < 0 || !isFinite(score))
       return res.status(400).json({ error: 'Invalid score' });
 
@@ -107,15 +108,27 @@ router.post('/score', requireAuth, async (req, res) => {
 
     // 4. Validate that collected items do not exceed the score (+2 tolerance)
     const safeGold = Math.max(0, Math.floor(Number(goldCollected) || 0));
+    const safeGoldItems = Math.max(0, Math.floor(Number(goldItemsCollected) || 0));
     const safeSeeds = Math.max(0, Math.floor(Number(seedsCollected) || 0));
-    if (safeGold + safeSeeds > score + 2) {
-      console.warn(`[/api/score] uid=${uid} collected items exceed score: gold=${safeGold}, seeds=${safeSeeds}, score=${score}`);
+    if (safeGoldItems + safeSeeds > score + 2) {
+      console.warn(`[/api/score] uid=${uid} collected items exceed score: goldItems=${safeGoldItems}, seeds=${safeSeeds}, score=${score}`);
       await ref.update({
         suspiciousFlag: true,
         suspiciousFlagAt: new Date().toISOString(),
-        suspiciousReason: `Item count spoofing: collected ${safeGold} gold and ${safeSeeds} seeds, but score is ${score}`
+        suspiciousReason: `Item count spoofing: collected ${safeGoldItems} gold items and ${safeSeeds} seeds, but score is ${score}`
       });
       return res.status(400).json({ error: 'Collected items are inconsistent with score.' });
+    }
+
+    // 4.1 Validate that the gold balance matches the gold items range [items * 500, items * 1000]
+    if (safeGold > safeGoldItems * 1000 || (safeGoldItems > 0 && safeGold < safeGoldItems * 500)) {
+      console.warn(`[/api/score] uid=${uid} suspicious gold balance: goldBalance=${safeGold}, goldItems=${safeGoldItems}`);
+      await ref.update({
+        suspiciousFlag: true,
+        suspiciousFlagAt: new Date().toISOString(),
+        suspiciousReason: `Gold balance spoofing: collected ${safeGold} gold balance from ${safeGoldItems} items (expected range [${safeGoldItems * 500}, ${safeGoldItems * 1000}])`
+      });
+      return res.status(400).json({ error: 'Collected gold balance is inconsistent with items collected.' });
     }
 
     // Rate limit: minimum 30 seconds between score submissions (read from Firestore)
@@ -153,6 +166,7 @@ router.post('/score', requireAuth, async (req, res) => {
       lastPlayedAt:       new Date().toISOString(),
       lastScore:          score,    // stored so game/end can cross-verify the score
       lastGoldCollected:  safeGold,
+      lastGoldItemsCollected: safeGoldItems,
       lastSeedsCollected: safeSeeds,
       highScore:          newBest,
       totalScore:         (data.totalScore || 0) + score,
@@ -351,6 +365,19 @@ router.get('/balance/:address', async (req, res) => {
     res.json({ balance: lamports / LAMPORTS_PER_SOL });
   } catch (err) {
     console.error('[/api/balance]', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ── GET /api/gold-balance/:address — live on-chain GOLD CA balance ────────────
+router.get('/gold-balance/:address', async (req, res) => {
+  try {
+    const connection = getSolanaConnection();
+    const mint = process.env.GOLD_CA || '3KSojyU77i1D6DRqDnUhPvM2kWjuF6VFYHcL6Lzjpump';
+    const balance = await getSPLTokenBalance(connection, req.params.address, mint);
+    res.json({ balance });
+  } catch (err) {
+    console.error('[/api/gold-balance]', err.message);
     res.status(400).json({ error: err.message });
   }
 });
@@ -1251,12 +1278,13 @@ router.post('/swap/gold-to-sol', requireAuth, async (req, res) => {
 //   4. Suspicious users flagged in Firestore for admin review
 router.post('/game/end', requireAuth, async (req, res) => {
   try {
-    const { score = 0, duration = 0, goldCollected = 0, seedsCollected = 0 } = req.body;
+    const { score = 0, duration = 0, goldCollected = 0, seedsCollected = 0, goldItemsCollected = 0 } = req.body;
 
     const safeScore    = Math.max(0, Math.min(9999, Math.floor(Number(score)    || 0)));
     const safeDuration = Math.max(0, Math.min(3600, Math.floor(Number(duration) || 0)));
-    const safeGold     = Math.max(0, Math.floor(Number(goldCollected) || 0));
-    const safeSeeds    = Math.max(0, Math.floor(Number(seedsCollected) || 0));
+    const safeGold      = Math.max(0, Math.floor(Number(goldCollected) || 0));
+    const safeGoldItems = Math.max(0, Math.floor(Number(goldItemsCollected) || 0));
+    const safeSeeds     = Math.max(0, Math.floor(Number(seedsCollected) || 0));
 
     const uid = req.user.uid;
     const db  = getFirestore();
@@ -1287,14 +1315,15 @@ router.post('/game/end', requireAuth, async (req, res) => {
     // ── Guard 3: block if score/gold/seeds mismatch from what /api/score registered ─────
     const registeredScore = typeof data.lastScore === 'number' ? data.lastScore : 0;
     const registeredGold  = typeof data.lastGoldCollected === 'number' ? data.lastGoldCollected : 0;
+    const registeredGoldItems = typeof data.lastGoldItemsCollected === 'number' ? data.lastGoldItemsCollected : 0;
     const registeredSeeds = typeof data.lastSeedsCollected === 'number' ? data.lastSeedsCollected : 0;
 
-    if (safeScore > registeredScore + 5 || safeGold > registeredGold + 5 || safeSeeds > registeredSeeds + 5) {
-      console.warn(`[game/end] BLOCKED uid=${uid} claimedScore=${safeScore} registeredScore=${registeredScore} claimedGold=${safeGold} registeredGold=${registeredGold} claimedSeeds=${safeSeeds} registeredSeeds=${registeredSeeds}`);
+    if (safeScore > registeredScore + 5 || safeGold > registeredGold + 5 || safeSeeds > registeredSeeds + 5 || safeGoldItems > registeredGoldItems + 2) {
+      console.warn(`[game/end] BLOCKED uid=${uid} claimedScore=${safeScore} registeredScore=${registeredScore} claimedGold=${safeGold} registeredGold=${registeredGold} claimedSeeds=${safeSeeds} registeredSeeds=${registeredSeeds} claimedGoldItems=${safeGoldItems} registeredGoldItems=${registeredGoldItems}`);
       await ref.update({
         suspiciousFlag: true,
         suspiciousFlagAt: new Date().toISOString(),
-        suspiciousReason: `Item/Score mismatch: claimed Score=${safeScore}, Gold=${safeGold}, Seeds=${safeSeeds} in /game/end, but /api/score registered Score=${registeredScore}, Gold=${registeredGold}, Seeds=${registeredSeeds}`
+        suspiciousReason: `Item/Score mismatch: claimed Score=${safeScore}, Gold=${safeGold}, Seeds=${safeSeeds}, GoldItems=${safeGoldItems} in /game/end, but /api/score registered Score=${registeredScore}, Gold=${registeredGold}, Seeds=${registeredSeeds}, GoldItems=${registeredGoldItems}`
       });
       return res.status(400).json({ error: 'Data mismatch: claimed rewards are inconsistent with registered gameplay data.' });
     }
@@ -1337,7 +1366,10 @@ router.post('/game/end', requireAuth, async (req, res) => {
       bpEarned    = Math.floor(Math.random() * (cfg.bpMax - cfg.bpMin + 1)) + cfg.bpMin;
 
       // Gold and seeds are based on actual items collected in the session
-      goldEarned  = Math.min(registeredGold, cfg.maxGold);
+      goldEarned = registeredGold;
+      if (registeredGoldItems > 0 && registeredGoldItems > cfg.maxGold) {
+        goldEarned = Math.floor((registeredGold / registeredGoldItems) * cfg.maxGold);
+      }
       seedsEarned = Math.min(registeredSeeds, cfg.maxSeeds);
 
       // Hard block: free-nest-only accounts get zero gold, always
