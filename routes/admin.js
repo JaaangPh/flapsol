@@ -385,4 +385,42 @@ router.post('/api/users/reset-all-gold', requireAdmin, async (req, res) => {
   }
 });
 
+// ── GET /admin/api/swap-config ────────────────────────────────────────────────
+router.get('/api/swap-config', requireAdmin, async (_req, res) => {
+  try {
+    const db  = getFirestore();
+    const doc = await db.collection('config').doc('swap').get();
+    if (doc.exists) {
+      const data = doc.data();
+      return res.json({ ok: true, enabled: data.enabled ?? true });
+    }
+    return res.json({ ok: true, enabled: true });
+  } catch (err) {
+    console.error('[admin/api/swap-config GET]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/swap-config ───────────────────────────────────────────────
+router.post('/api/swap-config', requireAdmin, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean.' });
+    }
+
+    const db = getFirestore();
+    await db.collection('config').doc('swap').set(
+      { enabled, updatedAt: new Date().toISOString() },
+      { merge: true }
+    );
+
+    console.log(`[admin/api/swap-config] swapEnabled=${enabled}`);
+    return res.json({ ok: true, enabled });
+  } catch (err) {
+    console.error('[admin/api/swap-config POST]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 module.exports = router;

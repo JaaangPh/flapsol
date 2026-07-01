@@ -773,7 +773,34 @@
       swapRateText.textContent   = `Rate: 1 GOLD ≈ ${(1 / _swapSolPhp).toFixed(8)} SOL · 2% fee`;
     }
 
+    let _swapEnabled = true;
+
+    async function checkSwapStatus() {
+      try {
+        const res = await fetch('/api/swap-config');
+        const data = await res.json();
+        if (data.ok) {
+          _swapEnabled = data.enabled;
+          const swapBtn = document.getElementById('swapBtn');
+          if (swapBtn) {
+            if (!_swapEnabled) {
+              swapBtn.style.opacity = '0.5';
+              swapBtn.title = 'Swap is temporarily disabled';
+            } else {
+              swapBtn.style.opacity = '';
+              swapBtn.title = '⇄ Swap';
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    checkSwapStatus();
+
     function openSwapModal() {
+      if (!_swapEnabled) {
+        showAlert('The swap feature is temporarily disabled by the administrator.', '💱 Swap Disabled');
+        return;
+      }
       const goldEl = document.getElementById('goldBalance');
       const solEl  = document.getElementById('walletBalance');
       _swapGoldBal = parseInt((goldEl ? goldEl.textContent.replace(/,/g,'') : '0'), 10) || 0;

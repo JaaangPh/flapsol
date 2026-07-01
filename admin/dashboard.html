@@ -655,6 +655,39 @@
     </div>
   </div>
 
+  <!-- Swap System Section -->
+  <div class="section-card">
+    <div class="section-title">
+      <span class="icon">💱</span>
+      Swap System Settings
+    </div>
+    <p class="section-desc">
+      Enable or disable the $GOLD to SOL swap feature on the public dashboard.
+    </p>
+
+    <!-- Toggle row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:18px;">
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:3px;">Swap Feature Status</div>
+        <div style="font-size:.75rem;color:var(--muted);" id="swapStatusText">Loading…</div>
+      </div>
+      <label class="toggle-switch" title="Toggle swap feature">
+        <input type="checkbox" id="swapToggle" />
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Save button -->
+    <div style="margin-top:20px;">
+      <button class="btn-save" id="swapSaveBtn">
+        <span class="btn-label">💾 Save Swap Settings</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
   <!-- ── Flagged Anomalies Section ── -->
   <div class="section-card" id="anomaliesSection" style="max-width:100%; display:none; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,0.01);">
     <div class="section-title" style="color: #ff8a8a;">
@@ -1000,6 +1033,63 @@
         renderWhitelist();
       } else {
         showToast(data.error || 'Failed to save.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
+  // ── Swap Config Functions ───────────────────────────────────────────────────
+  function updateSwapStatusText(enabled) {
+    const el = document.getElementById('swapStatusText');
+    if (!el) return;
+    el.textContent = enabled
+      ? '🟢 Swap is ENABLED — players can swap Gold to SOL'
+      : '🔴 Swap is DISABLED — swap feature is locked';
+    el.style.color = enabled ? '#14f195' : '#ff8a8a';
+  }
+
+  document.getElementById('swapToggle').addEventListener('change', function () {
+    updateSwapStatusText(this.checked);
+  });
+
+  async function loadSwapConfig() {
+    try {
+      const res  = await fetch('/admin/api/swap-config');
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('swapToggle').checked = data.enabled;
+        updateSwapStatusText(data.enabled);
+      }
+    } catch {
+      showToast('Failed to load swap settings.', 'error');
+    }
+  }
+  loadSwapConfig();
+
+  document.getElementById('swapSaveBtn').addEventListener('click', async () => {
+    const btn     = document.getElementById('swapSaveBtn');
+    const enabled = document.getElementById('swapToggle').checked;
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+    try {
+      const res  = await fetch('/admin/api/swap-config', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ enabled }),
+      });
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(enabled ? '💱 Swap feature ENABLED' : '🚫 Swap feature DISABLED');
+        updateSwapStatusText(data.enabled);
+      } else {
+        showToast(data.error || 'Failed to save swap settings.', 'error');
       }
     } catch {
       showToast('Network error. Please try again.', 'error');

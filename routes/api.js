@@ -1054,12 +1054,37 @@ router.post('/energy/use', requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/swap-config ──────────────────────────────────────────────────────
+router.get('/swap-config', async (_req, res) => {
+  try {
+    const db  = getFirestore();
+    const doc = await db.collection('config').doc('swap').get();
+    if (doc.exists) {
+      const data = doc.data();
+      return res.json({ ok: true, enabled: data.enabled ?? true });
+    }
+    return res.json({ ok: true, enabled: true });
+  } catch (err) {
+    console.error('[/api/swap-config]', err);
+    res.status(500).json({ ok: false, error: 'Server error' });
+  }
+});
+
 // ── POST /api/swap/gold-to-sol ────────────────────────────────────────────────
 // User burns $GOLD; backend sends real SOL from store wallet to user's wallet.
 // Rate: 1 GOLD = 1 PHP. SOL/PHP fetched live from CoinGecko.
 // 2% slippage fee applied. Minimum: 102 GOLD.
 router.post('/swap/gold-to-sol', requireAuth, async (req, res) => {
   try {
+    const db  = getFirestore();
+
+    // Check if swap is enabled in config
+    const swapConfigDoc = await db.collection('config').doc('swap').get();
+    const swapEnabled = swapConfigDoc.exists ? (swapConfigDoc.data().enabled ?? true) : true;
+    if (!swapEnabled) {
+      return res.status(400).json({ error: 'Swap feature is temporarily disabled by administrator.' });
+    }
+
     const { goldAmount } = req.body;
 
     if (!Number.isInteger(goldAmount) || goldAmount <= 0)
@@ -1070,7 +1095,6 @@ router.post('/swap/gold-to-sol', requireAuth, async (req, res) => {
       return res.status(400).json({ error: `Minimum swap is ${MIN_GOLD} GOLD.` });
 
     const uid = req.user.uid;
-    const db  = getFirestore();
     const ref = db.collection('users').doc(uid);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
