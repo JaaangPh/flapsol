@@ -132,7 +132,7 @@ const MAINTENANCE_BYPASS = ['/maintenance', '/auth/', '/admin', '/health', '/ter
 async function maintenanceGuard(req, res, next) {
   if (MAINTENANCE_BYPASS.some(p => req.path === p || req.path.startsWith(p))) return next();
 
-  const protectedPaths = ['/dashboard', '/inventory', '/marketplace', '/playtoearn', '/freetoplay', '/game'];
+  const protectedPaths = ['/dashboard', '/inventory', '/farm', '/marketplace', '/playtoearn', '/freetoplay', '/game'];
   if (!protectedPaths.some(p => req.path === p || req.path.startsWith(p))) return next();
 
   const cfg = await getMaintenanceConfig();
@@ -160,6 +160,11 @@ app.get('/dashboard', (req, res) => {
 app.get('/inventory', (req, res) => {
   if (!req.isAuthenticated()) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'inventory.html'));
+});
+
+app.get('/farm', (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'farm.html'));
 });
 
 app.get('/marketplace', (req, res) => {

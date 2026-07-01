@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SolClash – Farm</title>
+  <link rel="icon" href="images/favicon.ico" />
+  <link rel="stylesheet" href="css/farm.css" />
+</head>
+<body>
+
+  <div class="farm-screen" id="farmScreen" style="opacity:0">
+    <div class="farm-map-wrap" id="farmMapWrap">
+      <img src="images/farm.png" alt="Farm" class="farm-map-img" id="farmMapImg" draggable="false" />
+      <div class="farm-hotspot-layer" id="farmHotspotLayer">
+        <button class="fhs fhs-black" id="hotHatchery" data-rx="0.475" data-ry="0.03" data-rw="0.245" data-rh="0.60">
+          <span class="fhs-lbl">Hatchery</span>
+          <span class="fhs-badge" id="hotHatcheryBadge" style="display:none">0</span>
+        </button>
+        <button class="fhs fhs-blue fhs-disabled" id="hotMarket" data-rx="0.09" data-ry="0.03" data-rw="0.175" data-rh="0.58">
+          <span class="fhs-lbl">Egg Market<br><small>Soon</small></span>
+        </button>
+        <button class="fhs fhs-red" id="hotStorage" data-rx="0.775" data-ry="0.03" data-rw="0.21" data-rh="0.60">
+          <span class="fhs-lbl">Storage</span>
+        </button>
+      </div>
+      <a href="/dashboard" class="farm-back">&#8592; Back</a>
+      <div class="farm-egg-hud">
+        <img src="images/egg.png" alt="egg" />
+        <span id="totalEggCount">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HATCHERY PANEL ── -->
+  <div class="fp-overlay" id="hatcheryOverlay" style="display:none">
+    <div class="hatch-panel">
+      <div class="hatch-header">
+        <div class="hatch-header-icon">🥚</div>
+        <div class="hatch-header-text">
+          <h2>Hatchery</h2>
+          <p>Eggs hatch automatically — no action needed</p>
+        </div>
+        <button class="hatch-close" id="hatcheryClose">✕</button>
+      </div>
+
+      <div class="hatch-section">
+        <div class="hatch-section-title">
+          <span class="hatch-section-icon">🏡</span>
+          Your Nests <span class="hatch-section-sub">Lvl 3+ · tap to activate / deactivate</span>
+        </div>
+        <div class="hatch-nest-grid" id="hatcheryNestRow">
+          <div class="hatch-loading">Loading nests…</div>
+        </div>
+      </div>
+
+      <div class="hatch-divider"></div>
+
+      <div class="hatch-section">
+        <div class="hatch-section-title">
+          <span class="hatch-section-icon">⚗️</span>
+          Active Slots
+          <span class="hatch-active-count" id="hatchActiveCount" style="display:none"></span>
+        </div>
+        <div class="hatch-active-area" id="hatcheryActiveSlots">
+          <div class="hatch-empty" id="hatcheryEmpty">
+            <img src="images/nest-icon.png" alt="nest" />
+            <span>No nests placed yet</span>
+            <small>Tap a nest above to start auto-hatching</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="hatch-divider"></div>
+
+      <div class="hatch-section">
+        <div class="hatch-section-title">
+          <span class="hatch-section-icon">📜</span>
+          Recent Hatches
+        </div>
+        <div class="hatch-log" id="hatcheryLog">
+          <div class="hatch-log-empty">No hatches yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STORAGE PANEL ── -->
+  <div class="fp-overlay" id="storageOverlay" style="display:none">
+    <div class="fp-panel">
+      <div class="fp-head">
+        <span>🏠</span>
+        <h2>Storage</h2>
+        <button class="fp-x" id="storageClose">✕</button>
+      </div>
+      <div class="fp-slbl">Your Nests</div>
+      <div class="fp-storage-list" id="storageNests"><div class="fp-loading">Loading…</div></div>
+      <div class="fp-divider"></div>
+      <div class="fp-slbl">Egg Balance</div>
+      <div class="fp-egg-total-row">
+        <img src="images/egg.png" alt="egg" />
+        <div>
+          <div class="fp-egg-num" id="storageTotalEggs">0</div>
+          <div class="fp-egg-sub">Eggs available</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div id="alertModal" class="fp-alert-bg" style="display:none">
+    <div class="fp-alert-box">
+      <h3 id="alertTitle">⚠️</h3>
+      <p id="alertMsg"></p>
+      <button id="alertClose">OK</button>
+    </div>
+  </div>
+
+  <script>
+    /* ── Alert ── */
+    function showAlert(msg, title='⚠️ Alert') {
+      document.getElementById('alertTitle').innerHTML = title;
+      document.getElementById('alertMsg').innerHTML = msg;
+      document.getElementById('alertModal').style.display = 'flex';
+    }
+    document.getElementById('alertClose').onclick = () => document.getElementById('alertModal').style.display='none';
+    document.getElementById('alertModal').addEventListener('click', e => {
+      if (e.target===document.getElementById('alertModal')) document.getElementById('alertModal').style.display='none';
+    });
+
+    /* ── Fullscreen ── */
+    function enterFullscreen() {
+      const el = document.documentElement;
+      const fn = el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+      if (fn) fn.call(el).catch(()=>{});
+    }
+    window.addEventListener('load', () => setTimeout(enterFullscreen, 400));
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) setTimeout(enterFullscreen, 600); });
+    document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) setTimeout(enterFullscreen, 600); });
+
+    /* ── Hotspot positioning ── */
+    function positionHotspots() {
+      const img=document.getElementById('farmMapImg'), layer=document.getElementById('farmHotspotLayer'), wrap=document.getElementById('farmMapWrap');
+      const nat_w=img.naturalWidth||1344, nat_h=img.naturalHeight||832;
+      const wrap_w=wrap.clientWidth, wrap_h=wrap.clientHeight;
+      const scale=Math.min(wrap_w/nat_w, wrap_h/nat_h);
+      const rend_w=nat_w*scale, rend_h=nat_h*scale;
+      layer.style.left=(((wrap_w-rend_w)/2))+'px'; layer.style.top=(((wrap_h-rend_h)/2))+'px';
+      layer.style.width=rend_w+'px'; layer.style.height=rend_h+'px';
+      document.querySelectorAll('.fhs').forEach(btn => {
+        btn.style.left=(parseFloat(btn.dataset.rx)*100)+'%'; btn.style.top=(parseFloat(btn.dataset.ry)*100)+'%';
+        btn.style.width=(parseFloat(btn.dataset.rw)*100)+'%'; btn.style.height=(parseFloat(btn.dataset.rh)*100)+'%';
+      });
+    }
+    document.getElementById('farmMapImg').addEventListener('load', positionHotspots);
+    window.addEventListener('resize', positionHotspots);
+    document.addEventListener('fullscreenchange',       () => setTimeout(positionHotspots, 100));
+    document.addEventListener('webkitfullscreenchange', () => setTimeout(positionHotspots, 100));
+
+    /* ── Egg rates (same timer per level, rarity affects count only) ── */
+    const EGG_RATES = {
+      common:    { 3:{count:1,ms:90*60*1000}, 4:{count:1,ms:60*60*1000}, 5:{count:1,ms:30*60*1000} },
+      rare:      { 3:{count:2,ms:90*60*1000}, 4:{count:2,ms:60*60*1000}, 5:{count:2,ms:30*60*1000} },
+      legendary: { 3:{count:3,ms:90*60*1000}, 4:{count:3,ms:60*60*1000}, 5:{count:3,ms:30*60*1000} },
+    };
+    const RCOL = { common:'#ccc', rare:'#5bb8f5', legendary:'#f0b840' };
+    const RBRD = { common:'#666', rare:'#3a9bdc', legendary:'#c8922a' };
+
+    /* ── State ── */
+    let allNests=[], activeFarm={}, timerInts={}, pollInt=null, eggBalance=0;
+
+    function msToHMS(ms) {
+      if (ms<=0) return '✓ Hatching…';
+      const h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000), s=Math.floor((ms%60000)/1000);
+      const p=[]; if(h) p.push(h+'h'); if(m||h) p.push(m+'m'); p.push(s+'s'); return p.join(' ');
+    }
+    function rateLabel(rarity, lvl) {
+      const r=EGG_RATES[rarity]?.[lvl]; if(!r) return '—';
+      const mins=r.ms/60000;
+      return `${r.count} egg${r.count>1?'s':''} / ${mins>=60?(mins/60)+'h':mins+'m'}`;
+    }
+
+    function openPanel(id)  { document.getElementById(id).style.display='flex'; }
+    function closePanel(id) { document.getElementById(id).style.display='none'; }
+
+    /* ── Hotspot events ── */
+    document.getElementById('hotHatchery').addEventListener('click', () => { openPanel('hatcheryOverlay'); renderNestRow(); renderActiveSlots(); });
+    document.getElementById('hotMarket').addEventListener('click', () => { showAlert('Egg Market is coming soon!', '🛒 Egg Market'); });
+    document.getElementById('hotStorage').addEventListener('click', () => { openPanel('storageOverlay'); renderStorage(); });
+    document.getElementById('hatcheryClose').onclick = () => closePanel('hatcheryOverlay');
+    document.getElementById('storageClose').onclick  = () => closePanel('storageOverlay');
+    ['hatcheryOverlay','storageOverlay'].forEach(id =>
+      document.getElementById(id).addEventListener('click', e => { if(e.target===document.getElementById(id)) closePanel(id); })
+    );
+
+    /* ── Storage ── */
+    function renderStorage() {
+      document.getElementById('storageTotalEggs').textContent = eggBalance;
+      const el = document.getElementById('storageNests');
+      if (!allNests.length) { el.innerHTML='<div class="fp-loading" style="padding:12px 0">No eligible nests (Lvl 3+)</div>'; return; }
+      el.innerHTML='';
+      allNests.forEach(nest => {
+        const lvl=nest.level||0, col=RCOL[nest.rarity]||'#aaa', brd=RBRD[nest.rarity]||'#666';
+        const c=document.createElement('div'); c.className='fp-sc'; c.style.borderColor=brd;
+        c.innerHTML=`
+          <img src="${nest.image||'images/nest/'+nest.rarity+'.png'}" alt="${nest.rarity}" />
+          <div class="fp-sci">
+            <div class="fp-scn">${nest.nestTag||nest.rarity}</div>
+            <div style="font-size:.52rem;color:${col};text-transform:uppercase;letter-spacing:.4px;margin:2px 0">Lvl ${lvl} · ${nest.rarity}</div>
+            <div style="font-size:.48rem;color:rgba(255,255,255,.32)">${rateLabel(nest.rarity,lvl)}</div>
+          </div>
+          ${activeFarm[nest.id]?'<span class="fp-sc-active">In Hatchery</span>':''}
+        `;
+        el.appendChild(c);
+      });
+    }
+
+    /* ── Nest picker ── */
+    function renderNestRow() {
+      const row = document.getElementById('hatcheryNestRow');
+      if (!allNests.length) { row.innerHTML='<div class="hatch-no-nests">No eligible nests — upgrade a nest to Lvl 3+</div>'; return; }
+      row.innerHTML='';
+      allNests.forEach(nest => {
+        const lvl=nest.level||0, isPlaced=!!activeFarm[nest.id];
+        const col=RCOL[nest.rarity]||'#aaa', brd=RBRD[nest.rarity]||'#666';
+        const c=document.createElement('div');
+        c.className='hatch-nc'+(isPlaced?' active':'');
+        c.style.setProperty('--rc', brd); c.style.setProperty('--rca', col);
+        c.innerHTML=`
+          <div class="hatch-nc-img-wrap">
+            <img src="${nest.image||'images/nest/'+nest.rarity+'.png'}" alt="${nest.rarity}" />
+            ${isPlaced?'<div class="hatch-nc-badge">✓</div>':''}
+          </div>
+          <div class="hatch-nc-name">${(nest.nestTag||nest.rarity).split('#')[0]}</div>
+          <div class="hatch-nc-meta" style="color:${col}">Lvl ${lvl} · ${nest.rarity}</div>
+          <div class="hatch-nc-rate">${rateLabel(nest.rarity,lvl)}</div>
+        `;
+        c.addEventListener('click', ()=>toggleNest(nest));
+        row.appendChild(c);
+      });
+    }
+
+    /* ── Toggle ── */
+    async function toggleNest(nest) {
+      if (activeFarm[nest.id]) await doRemoveNest(nest.id);
+      else await doPlaceNest(nest);
+    }
+
+    async function doPlaceNest(nest) {
+      try {
+        const d = await fetch('/api/farm/place',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nestId:nest.id})}).then(r=>r.json());
+        if (d.ok) {
+          activeFarm[nest.id] = { nextTickAt: d.nextTickAt };
+          if (d.eggBalance !== undefined) eggBalance = d.eggBalance;
+          startNestTimer(nest.id, d.nextTickAt);
+          renderNestRow(); renderActiveSlots(); updateHud();
+        } else { showAlert(d.error||'Could not place nest.'); }
+      } catch { showAlert('Network error.'); }
+    }
+
+    async function doRemoveNest(nestId) {
+      try {
+        const d = await fetch('/api/farm/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nestId})}).then(r=>r.json());
+        if (d.ok) {
+          delete activeFarm[nestId]; stopNestTimer(nestId);
+          renderNestRow(); renderActiveSlots(); updateHud();
+        } else { showAlert(d.error||'Could not remove nest.'); }
+      } catch { showAlert('Network error.'); }
+    }
+
+    /* ── Per-nest countdown ── */
+    function startNestTimer(nestId, nextTickAt) {
+      stopNestTimer(nestId);
+      if (!nextTickAt) return;
+      const deadline = new Date(nextTickAt).getTime();
+      function tick() {
+        const rem = Math.max(0, deadline - Date.now());
+        const el  = document.getElementById('nest-timer-'+nestId);
+        if (el) el.textContent = msToHMS(rem);
+        if (rem <= 0) { stopNestTimer(nestId); pollState(); }
+      }
+      tick();
+      timerInts[nestId] = setInterval(tick, 1000);
+    }
+    function stopNestTimer(nestId) {
+      if (timerInts[nestId]) { clearInterval(timerInts[nestId]); delete timerInts[nestId]; }
+    }
+
+    /* ── Poll server — triggers auto-hatch + returns updated eggBalance ── */
+    async function pollState() {
+      try {
+        const d = await fetch('/api/farm/state').then(r=>r.json());
+        if (!d.ok) return;
+
+        if (d.eggBalance !== undefined) eggBalance = d.eggBalance;
+
+        if (d.farmState) {
+          // Add new nests, update timers for existing
+          for (const [id, s] of Object.entries(d.farmState)) {
+            activeFarm[id] = s;
+            startNestTimer(id, s.nextTickAt);
+          }
+          // Remove server-cleaned orphans
+          for (const id of Object.keys(activeFarm)) {
+            if (!d.farmState[id]) { delete activeFarm[id]; stopNestTimer(id); }
+          }
+        }
+
+        // Log + toast for each nest that auto-hatched this poll
+        if (d.hatchedThisTick) {
+          for (const [id, count] of Object.entries(d.hatchedThisTick)) {
+            if (count > 0) {
+              const nest = allNests.find(n=>n.id===id);
+              if (nest) { addLog(nest, count); showToast(nest, count); }
+            }
+          }
+        }
+
+        updateHud();
+        // Refresh count badge
+        const activeNests = allNests.filter(n=>activeFarm[n.id]);
+        const cb = document.getElementById('hatchActiveCount');
+        if (activeNests.length) { cb.style.display=''; cb.textContent=activeNests.length+' active'; }
+        else { cb.style.display='none'; }
+      } catch {}
+    }
+
+    /* ── Toast ── */
+    function showToast(nest, count) {
+      const col=RCOL[nest.rarity]||'#aaa';
+      const t=document.createElement('div'); t.className='hatch-toast';
+      t.innerHTML=`<img src="images/egg.png" alt="egg" /><span style="color:${col}">+${count} egg${count>1?'s':''}</span><small>${(nest.nestTag||nest.rarity).split('#')[0]}</small>`;
+      document.body.appendChild(t);
+      requestAnimationFrame(()=>{ requestAnimationFrame(()=>t.classList.add('show')); });
+      setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),400); }, 3000);
+    }
+
+    /* ── Active slots (no hatch button) ── */
+    function renderActiveSlots() {
+      const container  = document.getElementById('hatcheryActiveSlots');
+      const emptyDiv   = document.getElementById('hatcheryEmpty');
+      const countBadge = document.getElementById('hatchActiveCount');
+      const activeNests= allNests.filter(n=>activeFarm[n.id]);
+
+      if (activeNests.length) { countBadge.style.display=''; countBadge.textContent=activeNests.length+' active'; }
+      else { countBadge.style.display='none'; }
+
+      if (!activeNests.length) {
+        emptyDiv.style.display='';
+        container.querySelectorAll('.hatch-slot-card').forEach(el=>el.remove());
+        Object.keys(timerInts).forEach(stopNestTimer);
+        return;
+      }
+      emptyDiv.style.display='none';
+
+      const existingIds = new Set([...container.querySelectorAll('.hatch-slot-card')].map(el=>el.dataset.nestId));
+      const wantedIds   = new Set(activeNests.map(n=>n.id));
+
+      existingIds.forEach(id => {
+        if (!wantedIds.has(id)) { container.querySelector(`.hatch-slot-card[data-nest-id="${id}"]`)?.remove(); stopNestTimer(id); }
+      });
+
+      activeNests.forEach(nest => {
+        if (existingIds.has(nest.id)) return; // already rendered, timer handles countdown
+        const state=activeFarm[nest.id]||{}, lvl=nest.level||0;
+        const col=RCOL[nest.rarity]||'#aaa', brd=RBRD[nest.rarity]||'#666';
+
+        const card=document.createElement('div');
+        card.className='hatch-slot-card'; card.dataset.nestId=nest.id;
+        card.style.setProperty('--rc', brd);
+        card.innerHTML=`
+          <div class="hatch-slot-left">
+            <img src="${nest.image||'images/nest/'+nest.rarity+'.png'}" alt="nest" />
+          </div>
+          <div class="hatch-slot-body">
+            <div class="hatch-slot-top">
+              <div>
+                <div class="hatch-slot-name">${nest.nestTag||nest.rarity}</div>
+                <div class="hatch-slot-meta" style="color:${col}">Lvl ${lvl} · ${nest.rarity.toUpperCase()}</div>
+              </div>
+              <button class="hatch-rem-btn" id="nest-remove-btn-${nest.id}" title="Remove">✕</button>
+            </div>
+            <div class="hatch-auto-badge">⚡ Auto-Hatching</div>
+            <div class="hatch-slot-timer-row">
+              <div class="hatch-slot-timer-label">Next batch in</div>
+              <div class="hatch-slot-timer" id="nest-timer-${nest.id}">—</div>
+              <div class="hatch-slot-rate">${rateLabel(nest.rarity,lvl)}</div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+        document.getElementById('nest-remove-btn-'+nest.id).addEventListener('click',()=>doRemoveNest(nest.id));
+        startNestTimer(nest.id, state.nextTickAt);
+      });
+    }
+
+    /* ── HUD ── */
+    function updateHud() {
+      document.getElementById('totalEggCount').textContent = eggBalance;
+      // Badge on hatchery hotspot = number of active nests
+      const active = Object.keys(activeFarm).length;
+      const b = document.getElementById('hotHatcheryBadge');
+      if (active>0) { b.style.display=''; b.textContent=active; } else { b.style.display='none'; }
+    }
+
+    /* ── Log ── */
+    function addLog(nest, hatched) {
+      const log = document.getElementById('hatcheryLog');
+      log.querySelector('.hatch-log-empty')?.remove();
+      const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const col=RCOL[nest.rarity]||'#aaa';
+      const el=document.createElement('div'); el.className='hatch-log-row';
+      el.innerHTML=`
+        <img src="images/egg.png" alt="egg" />
+        <div class="hatch-log-info">
+          <span class="hatch-log-nest" style="color:${col}">${nest.nestTag||nest.rarity}</span>
+          <span class="hatch-log-desc">Auto-hatched <strong>${hatched}</strong> egg${hatched>1?'s':''}</span>
+        </div>
+        <span class="hatch-log-time">${time}</span>
+      `;
+      log.prepend(el);
+      const all=log.querySelectorAll('.hatch-log-row'); if(all.length>10) all[all.length-1].remove();
+    }
+
+    /* ── Init ── */
+    async function init() {
+      try {
+        const u = await fetch('/auth/me').then(r=>r.json());
+        if (!u.loggedIn) { window.location.href='/'; return; }
+        eggBalance = u.eggBalance || 0;
+
+        const inv = await fetch('/api/inventory').then(r=>r.json());
+        if (inv.ok && Array.isArray(inv.inventory))
+          allNests = inv.inventory.filter(i=>i.type==='nest'&&i.rarity!=='free'&&(i.level||0)>=3);
+
+        // pollState auto-hatches offline eggs and populates activeFarm
+        await pollState();
+
+        positionHotspots();
+        updateHud();
+        renderActiveSlots();
+
+        // Poll every 60 s in background
+        pollInt = setInterval(pollState, 60*1000);
+
+        document.getElementById('farmScreen').style.opacity='1';
+      } catch { window.location.href='/'; }
+    }
+    init();
+  </script>
+  <script src="js/session-guard.js"></script>
+</body>
+</html>

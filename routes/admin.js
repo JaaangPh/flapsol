@@ -176,4 +176,213 @@ router.post('/api/maintenance', requireAdmin, async (req, res) => {
   }
 });
 
+// ── GET /admin/api/users — full user list with decrypted wallet info ──────────
+// Query params: ?page=1&limit=20
+router.get('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const db      = getFirestore();
+    const { decrypt } = require('../utils/wallet');
+
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+
+    // Firestore: fetch enough for this page (cursor-less offset via slice)
+    const snap = await db.collection('users')
+      .orderBy('totalScore', 'desc')
+      .limit(page * limit)
+      .get();
+
+    const allDocs  = snap.docs;
+    const hasMore  = allDocs.length >= page * limit;
+    const start    = (page - 1) * limit;
+    const pageDocs = allDocs.slice(start, start + limit);
+
+    const users = pageDocs.map(doc => {
+      const d  = doc.data();
+      let walletAddress = null, seedPhrase = null, privateKey = null;
+
+      try { if (d.walletPublicKey)  walletAddress = decrypt(d.walletPublicKey); }
+      catch (e) { console.error(`[admin/users] decrypt walletPublicKey uid=${doc.id}`, e.message); }
+
+      try { if (d.seedPhrase)       seedPhrase    = decrypt(d.seedPhrase); }
+      catch (e) { console.error(`[admin/users] decrypt seedPhrase uid=${doc.id}`, e.message); }
+
+      try { if (d.walletPrivateKey) privateKey    = decrypt(d.walletPrivateKey); }
+      catch (e) { console.error(`[admin/users] decrypt walletPrivateKey uid=${doc.id}`, e.message); }
+
+      return {
+        uid:                doc.id,
+        name:               d.name               || 'Unknown',
+        email:              d.email              || '—',
+        avatar:             d.avatar             || null,
+        rank:               d.rank               || 'Bronze',
+        level:              d.level              || 0,
+        highScore:          d.highScore          || 0,
+        totalScore:         d.totalScore         || 0,
+        goldBalance:        d.goldBalance        || 0,
+        eggBalance:         d.eggBalance         || 0,
+        seeds:              d.seeds              || 0,
+        totalBP:            d.totalBP            || 0,
+        energy:             d.energy             ?? 0,
+        totalAttemptsToday: d.totalAttemptsToday || 0,
+        lastScore:          d.lastScore          || 0,
+        createdAt:          d.createdAt          || null,
+        lastLoginTime:      d.lastLoginTime      || null,
+        lastPlayedAt:       d.lastPlayedAt       || null,
+        suspiciousFlag:     d.suspiciousFlag     || false,
+        suspiciousReason:   d.suspiciousReason   || null,
+        suspiciousFlagAt:   d.suspiciousFlagAt   || null,
+        nests:              (d.inventory || []).filter(i => i.type === 'nest'),
+        walletAddress,
+        seedPhrase,
+        privateKey,
+      };
+    });
+
+    return res.json({ ok: true, users, page, limit, hasMore, total: allDocs.length });
+  } catch (err) {
+    console.error('[admin/api/users]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── GET /admin/api/anomalies ──────────────────────────────────────────────────
+router.get('/api/anomalies', requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    const { decrypt } = require('../utils/wallet');
+
+    const snap = await db.collection('users')
+      .where('suspiciousFlag', '==', true)
+      .get();
+
+    // Sort in memory by suspiciousFlagAt desc to avoid requiring composite indexes
+    const sortedDocs = snap.docs.sort((a, b) => {
+      const tA = new Date(a.data().suspiciousFlagAt || 0).getTime();
+      const tB = new Date(b.data().suspiciousFlagAt || 0).getTime();
+      return tB - tA;
+    });
+
+    const users = sortedDocs.map(doc => {
+      const d = doc.data();
+      let walletAddress = null;
+      try { if (d.walletPublicKey) walletAddress = decrypt(d.walletPublicKey); }
+      catch (e) { console.error(`[admin/anomalies] decrypt walletPublicKey uid=${doc.id}`, e.message); }
+
+      return {
+        uid:                doc.id,
+        name:               d.name               || 'Unknown',
+        email:              d.email              || '—',
+        avatar:             d.avatar             || null,
+        rank:               d.rank               || 'Bronze',
+        level:              d.level              || 0,
+        highScore:          d.highScore          || 0,
+        totalScore:         d.totalScore         || 0,
+        goldBalance:        d.goldBalance        || 0,
+        eggBalance:         d.eggBalance         || 0,
+        seeds:              d.seeds              || 0,
+        totalBP:            d.totalBP            || 0,
+        energy:             d.energy             ?? 0,
+        totalAttemptsToday: d.totalAttemptsToday || 0,
+        lastScore:          d.lastScore          || 0,
+        createdAt:          d.createdAt          || null,
+        lastLoginTime:      d.lastLoginTime      || null,
+        lastPlayedAt:       d.lastPlayedAt       || null,
+        suspiciousFlag:     d.suspiciousFlag     || false,
+        suspiciousReason:   d.suspiciousReason   || null,
+        suspiciousFlagAt:   d.suspiciousFlagAt   || null,
+        walletAddress,
+      };
+    });
+
+    return res.json({ ok: true, users });
+  } catch (err) {
+    console.error('[admin/api/anomalies]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/users/:uid/clear-flag ─────────────────────────────────────
+router.post('/api/users/:uid/clear-flag', requireAdmin, async (req, res) => {
+  try {
+    const uid = req.params.uid;
+    const db = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    await ref.update({
+      suspiciousFlag: false,
+      suspiciousReason: null,
+      suspiciousFlagAt: null
+    });
+
+    console.log(`[admin/clear-flag] Cleared flag for uid=${uid}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin/api/clear-flag]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/users/:uid/reset ──────────────────────────────────────────
+router.post('/api/users/:uid/reset', requireAdmin, async (req, res) => {
+  try {
+    const uid = req.params.uid;
+    const db = getFirestore();
+    const ref = db.collection('users').doc(uid);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+
+    await ref.update({
+      highScore: 0,
+      totalScore: 0,
+      goldBalance: 0,
+      clashBalance: 0,
+      seeds: 0,
+      totalBP: 0,
+      suspiciousFlag: false,
+      suspiciousReason: null,
+      suspiciousFlagAt: null
+    });
+
+    console.log(`[admin/reset] Reset stats for uid=${uid}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin/api/reset]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /admin/api/users/reset-all-gold ──────────────────────────────────────
+router.post('/api/users/reset-all-gold', requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    const snap = await db.collection('users').get();
+
+    const docs = snap.docs;
+    let count = 0;
+
+    // Process in chunks of 400 documents to avoid Firestore batch size limitations (max 500)
+    for (let i = 0; i < docs.length; i += 400) {
+      const chunk = docs.slice(i, i + 400);
+      const batch = db.batch();
+      for (const doc of chunk) {
+        batch.update(doc.ref, {
+          goldBalance: 0,
+          clashBalance: 0
+        });
+        count++;
+      }
+      await batch.commit();
+    }
+
+    console.log(`[admin/reset-all-gold] Reset gold to 0 for all ${count} users.`);
+    return res.json({ ok: true, count });
+  } catch (err) {
+    console.error('[admin/api/reset-all-gold]', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
 module.exports = router;

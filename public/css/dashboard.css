@@ -1449,22 +1449,104 @@ body {
   color: rgba(255,255,255,.35);
   padding: 4px 0;
 }
-.dr-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 6px 10px;
-  margin-bottom: 10px;
+
+/* ── Section title inside drop rate rows ── */
+.dr-section-title {
+  font-size: .6rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 10px 0 7px;
 }
-.dr-row-bp {
-  margin-bottom: 6px;
-}
-.dr-label {
+.dr-section-title:first-child { margin-top: 0; }
+
+/* ── Per-nest breakdown rows ── */
+.dr-nest-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: .78rem;
-  color: rgba(255,255,255,.6);
+  gap: 9px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,.04);
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+.dr-nest-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.dr-nest-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dr-nest-name {
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.dr-nest-rates {
+  font-size: .7rem;
+  color: rgba(255,255,255,.5);
+  font-family: 'Courier New', monospace;
+}
+.dr-cap-note {
+  font-size: .62rem;
+  color: rgba(255,150,50,.7);
+  font-weight: 600;
+}
+
+/* ── Triple bonus section ── */
+.dr-bonus-section {
+  margin: 6px 0;
+}
+.dr-bonus-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  background: rgba(20,241,149,.06);
+  border: 1px solid rgba(20,241,149,.15);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+.dr-bonus-tag {
+  font-size: .68rem;
+  color: var(--sol-green);
+  font-weight: 700;
+}
+.dr-bonus-vals {
+  font-size: .68rem;
+  color: rgba(255,255,255,.55);
+  font-family: 'Courier New', monospace;
+}
+
+/* ── Divider ── */
+.dr-divider {
+  height: 1px;
+  background: rgba(255,255,255,.08);
+  margin: 10px 0 6px;
+}
+
+/* ── Total row (3 items) ── */
+.dr-total-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dr-total-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: rgba(0,0,0,.25);
+  border-radius: 8px;
+  padding: 7px 6px;
 }
 .dr-icon {
   width: 16px;
@@ -1473,55 +1555,58 @@ body {
   image-rendering: pixelated;
   flex-shrink: 0;
 }
-.dr-pct {
-  font-size: .82rem;
+.dr-total-label {
+  font-size: .58rem;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.dr-total-pct {
+  font-size: .9rem;
   font-weight: 800;
   font-family: 'Courier New', monospace;
-  text-align: right;
-  white-space: nowrap;
 }
 .dr-pct-seed { color: #6fff6f; }
 .dr-pct-gold { color: #ffd700; }
 .dr-pct-bp   { color: #c988ff; }
 
-/* Progress bars — span both columns */
+/* ── Bar rows ── */
+.dr-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+.dr-bar-label { font-size: .85rem; flex-shrink: 0; }
 .dr-bar-bg {
-  grid-column: 1 / -1;
-  height: 6px;
+  flex: 1;
+  height: 7px;
   background: rgba(255,255,255,.08);
   border-radius: 4px;
   overflow: hidden;
-  margin-top: -4px;
-  margin-bottom: 4px;
 }
 .dr-bar-fill {
   height: 100%;
   border-radius: 4px;
-  transition: width .5s ease;
+  transition: width .6s ease;
 }
-.dr-bar-seed { background: linear-gradient(90deg, #2e7d32, #6fff6f); }
-.dr-bar-gold { background: linear-gradient(90deg, #b8860b, #ffd700); }
-
-.dr-bonus {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-.dr-bonus span {
+.dr-bar-pct {
   font-size: .68rem;
-  color: var(--sol-green);
-  background: rgba(20,241,149,.08);
-  border: 1px solid rgba(20,241,149,.2);
-  border-radius: 20px;
-  padding: 2px 8px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.45);
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
 }
+
 .dr-hint {
-  font-size: .66rem;
-  color: rgba(255,255,255,.25);
-  margin-top: 4px;
+  font-size: .62rem;
+  color: rgba(255,255,255,.22);
+  margin-top: 8px;
+  line-height: 1.4;
 }
+
 
 /* ══════════════════════════════════════════
    Bottom Navigation Bar
@@ -1608,4 +1693,171 @@ body {
 /* Extra bottom padding on pages with the navbar so content isn't hidden */
 body.has-bottom-nav .dashboard {
   padding-bottom: 96px;
+}
+
+/* ── Nest Modal Tabs ── */
+.im-tab-bar {
+  display: flex;
+  background: rgba(255,255,255,.05);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.im-tab {
+  flex: 1;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255,255,255,.45);
+  font-size: .75rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: .4px;
+  transition: background .15s, color .15s;
+}
+.im-tab.active {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.im-tab:hover:not(.active) {
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.7);
+}
+
+/* ── Nest Upgrade Section ── */
+.nest-upgrade-box {
+  background: rgba(153,69,255,.05);
+  border: 1px solid rgba(153,69,255,.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.nest-upgrade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+}
+.nest-upgrade-title {
+  font-size: .72rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.7);
+  text-transform: uppercase;
+  letter-spacing: .7px;
+}
+.nest-upgrade-stars {
+  display: flex;
+  gap: 2px;
+  letter-spacing: 1px;
+}
+.nest-upgrade-maxed {
+  text-align: center;
+  font-size: .82rem;
+  font-weight: 800;
+  color: #ffd050;
+  padding: 8px 0 4px;
+  letter-spacing: .5px;
+}
+/* Cost rows */
+.nest-upgrade-costs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.nest-upgrade-cost {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,.2);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.nest-upgrade-cost img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.nest-upgrade-cost span:nth-child(2) {
+  flex: 1;
+  font-size: .82rem;
+  font-weight: 700;
+  color: #fff;
+}
+.nest-upgrade-have {
+  font-size: .72rem;
+  color: rgba(255,255,255,.4);
+  font-family: 'Courier New', monospace;
+}
+.nest-upgrade-cost.insufficient span:nth-child(2) {
+  color: #ff8a94;
+}
+.nest-upgrade-cost.insufficient .nest-upgrade-have {
+  color: #ff6060;
+}
+/* Upgrade button */
+.nest-upgrade-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+  box-shadow: 0 4px 14px rgba(153,69,255,.35);
+  letter-spacing: .3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.nest-upgrade-btn-cost {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: .7rem;
+  font-weight: 800;
+  background: rgba(0,0,0,.25);
+  border-radius: 6px;
+  padding: 3px 9px;
+  color: #ffd050;
+  letter-spacing: .5px;
+}
+.nest-upgrade-btn-cost img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.nest-upgrade-btn-label {
+  font-size: .82rem;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.nest-upgrade-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+.nest-upgrade-btn:active:not(:disabled) { transform: translateY(0); }
+.nest-upgrade-btn:disabled,
+.nest-upgrade-btn.disabled,
+.nest-upgrade-btn.cant-afford {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.4);
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+.nest-upgrade-btn.cant-afford .nest-upgrade-btn-cost {
+  color: #ff8a94;
+  background: rgba(255,100,100,.1);
+}
+.nest-upgrade-btn.disabled .nest-upgrade-btn-cost {
+  color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.05);
 }

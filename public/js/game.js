@@ -69,47 +69,24 @@ let seedsCollected    = 0;
 let goldCollected     = 0;
 const COLLECTIBLE_SIZE = 28;  // px
 
-// ── Nest-based spawn rates (calculated from user inventory on init) ───────────
-// These are per-pipe spawn probabilities, derived from nest ownership.
-// Updated once per game session on init.
-let nestSeedPct = 0;  // 0.0 – 1.0
-let nestGoldPct = 0;  // 0.0 – 1.0
+// ── Nest-based spawn rates — fetched from server before each game session ─────
+// Server computes these from actual nest inventory so client can't spoof them.
+// goldPct is 0 for free-nest-only accounts — no gold spawns at all.
+let nestSeedPct = 0;
+let nestGoldPct = 0;
 
-// Rarity configs — mirrors the backend RARITY_CFG
-const NEST_RARITY_CFG = {
-  free:      { seedPct: 0.02,  goldPct: 0     },
-  common:    { seedPct: 0.10,  goldPct: 0.05  },
-  rare:      { seedPct: 0.15,  goldPct: 0.10  },
-  legendary: { seedPct: 0.25,  goldPct: 0.17  },
-};
-const NEST_TRIPLE_BONUS = {
-  common:    { seedBonus: 0.05, goldBonus: 0.02 },
-  rare:      { seedBonus: 0.07, goldBonus: 0.05 },
-  legendary: { seedBonus: 0.10, goldBonus: 0.07 },
-};
-
-function calcNestRates(inventory) {
-  const nests = (inventory || []).filter(i => i.type === 'nest');
-  if (!nests.length) return { seedPct: 0, goldPct: 0 };
-
-  const counts = { free: 0, common: 0, rare: 0, legendary: 0 };
-  for (const n of nests) { if (counts[n.rarity] !== undefined) counts[n.rarity]++; }
-
-  let sp = 0, gp = 0;
-  for (const [r, cnt] of Object.entries(counts)) {
-    if (!cnt) continue;
-    const cfg = NEST_RARITY_CFG[r];
-    if (!cfg) continue;
-    sp += cfg.seedPct * cnt;
-    gp += cfg.goldPct * cnt;
+async function fetchGameRates() {
+  try {
+    const res  = await fetch('/api/game/rates');
+    const data = await res.json();
+    if (data.ok) {
+      nestSeedPct = data.seedPct || 0;
+      nestGoldPct = data.goldPct || 0; // 0 for free-only accounts
+    }
+  } catch (e) {
+    console.warn('[game/rates fetch failed — using previous rates]', e);
+    // Keep whatever rates were last loaded; don't zero them out
   }
-
-  // Triple-rarity bonus (3+ of same rarity)
-  for (const [r, bonus] of Object.entries(NEST_TRIPLE_BONUS)) {
-    if ((counts[r] || 0) >= 3) { sp += bonus.seedBonus; gp += bonus.goldBonus; }
-  }
-
-  return { seedPct: Math.min(sp, 1.0), goldPct: Math.min(gp, 1.0) };
 }
 
 const GRAVITY           = 0.44;
@@ -334,19 +311,7 @@ async function init() {
   // Load energy from server
   await fetchEnergy();
 
-  // Calculate nest-based collectible spawn rates from inventory
-  try {
-    const invRes  = await fetch('/api/inventory');
-    const invData = await invRes.json();
-    if (invData.ok && Array.isArray(invData.inventory)) {
-      const rates = calcNestRates(invData.inventory);
-      nestSeedPct = rates.seedPct;
-      nestGoldPct = rates.goldPct;
-    }
-  } catch (e) {
-    console.warn('[nest rates]', e);
-  }
-
+  await fetchGameRates();
   birdOptions.querySelectorAll('.bird-opt').forEach(opt => {
     opt.addEventListener('click', () => selectBird(opt.dataset.bird));
   });
@@ -398,6 +363,9 @@ function showGameOver() {
 
 // ── Game lifecycle ────────────────────────────────────────────────────────────
 function startGame() {
+  // Re-fetch spawn rates in case inventory changed since last game
+  fetchGameRates();
+
   pipes.forEach(p => { p.topEl.remove(); p.botEl.remove(); });
   pipes      = [];
   frameCount = 0;
@@ -459,118 +427,121 @@ async function endGame() {
   const playDuration = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 0;
 
   if (user) {
-    // Fire both requests in parallel
-    const [scoreRes, rewardRes] = await Promise.allSettled([
-      fetch('/api/score', {
+    // ── Step 1: submit score first — server writes lastScore + lastPlayedAt ──
+    // game/end reads those fields, so it MUST run after /api/score commits.
+    let scoreData = null;
+    try {
+      const scoreRes = await fetch('/api/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, duration: playDuration }),
-      }),
-      fetch('/api/game/end', {
+        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected }),
+      });
+      if (scoreRes.ok) scoreData = await scoreRes.json();
+    } catch (err) {
+      console.error('[endGame score]', err);
+    }
+
+    // ── Step 2: now claim rewards — lastScore is committed ────────────────────
+    let rewardData = null;
+    try {
+      const rewardRes = await fetch('/api/game/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seedsCollected, goldCollected }),
-      }),
-    ]);
+        body: JSON.stringify({ score, duration: playDuration, goldCollected, seedsCollected }),
+      });
+      if (rewardRes.ok) rewardData = await rewardRes.json();
+    } catch (err) {
+      console.error('[endGame rewards]', err);
+    }
 
-    // ── Handle score / EXP ───────────────────────────────────────────────
-    if (scoreRes.status === 'fulfilled' && scoreRes.value.ok) {
-      try {
-        const data = await scoreRes.value.json();
-        if (data.highScore !== undefined && data.highScore > highScore) {
-          highScore = data.highScore;
-          bestValEl.textContent = highScore;
-        }
+    // ── Handle score / EXP ─────────────────────────────────────────────────
+    if (scoreData) {
+      const data = scoreData;
+      if (data.highScore !== undefined && data.highScore > highScore) {
+        highScore = data.highScore;
+        bestValEl.textContent = highScore;
+      }
 
-        if (data.expGained !== undefined) {
-          const goExpContainer = document.getElementById('goExpContainer');
-          const goLevelLabel   = document.getElementById('goLevelLabel');
-          const goExpVal       = document.getElementById('goExpVal');
-          const goExpBar       = document.getElementById('goExpBar');
-          const goLevelUpText  = document.getElementById('goLevelUpText');
+      if (data.expGained !== undefined) {
+        const goExpContainer = document.getElementById('goExpContainer');
+        const goLevelLabel   = document.getElementById('goLevelLabel');
+        const goExpVal       = document.getElementById('goExpVal');
+        const goExpBar       = document.getElementById('goExpBar');
+        const goLevelUpText  = document.getElementById('goLevelUpText');
 
-          if (goExpContainer) {
-            goExpContainer.style.display = 'block';
-            goLevelLabel.textContent = `Level ${data.level ?? 0}`;
-            goExpVal.textContent     = `+${data.expGained} EXP`;
+        if (goExpContainer) {
+          goExpContainer.style.display = 'block';
+          goLevelLabel.textContent = `Level ${data.level ?? 0}`;
+          goExpVal.textContent     = `+${data.expGained} EXP`;
 
-            const currentExp  = data.currentExp  ?? 0;
-            const requiredExp = data.requiredExp  ?? 200;
+          const currentExp  = data.currentExp  ?? 0;
+          const requiredExp = data.requiredExp  ?? 200;
 
-            let prevExp = currentExp - data.expGained;
-            let prevRequired = requiredExp;
-            if (data.leveledUp) {
-              const prevLevel = (data.level ?? 1) - 1;
-              prevRequired = (prevLevel + 1) * 200;
-              prevExp = prevRequired - (data.expGained - currentExp);
-            }
+          // Reconstruct EXP bar position BEFORE this gain
+          // If leveled up: exp before gain = (prevRequired - overflow) where overflow = expGained - currentExp
+          let prevExp      = currentExp - data.expGained;
+          let prevRequired = requiredExp;
+          if (data.leveledUp) {
+            const prevLevel = (data.level ?? 1) - 1;
+            prevRequired    = (prevLevel + 1) * 200;
+            // overflow into new level = currentExp; exp before the gain = prevRequired - (expGained - currentExp)
+            prevExp = prevRequired - (data.expGained - currentExp);
+            if (prevExp < 0) prevExp = 0; // safety clamp
+          }
 
-            const startPercent = Math.max(0, Math.min(100, Math.round(prevExp / prevRequired * 100)));
-            const endPercent   = Math.max(0, Math.min(100, Math.round(currentExp / requiredExp * 100)));
+          const startPercent = Math.max(0, Math.min(100, Math.round(prevExp / prevRequired * 100)));
+          const endPercent   = Math.max(0, Math.min(100, Math.round(currentExp / requiredExp * 100)));
 
-            goExpBar.style.transition = 'none';
-            goExpBar.style.width      = startPercent + '%';
-            void goExpBar.offsetHeight;
-            goExpBar.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+          goExpBar.style.transition = 'none';
+          goExpBar.style.width      = startPercent + '%';
+          void goExpBar.offsetHeight;
+          goExpBar.style.transition = 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
 
-            if (data.leveledUp) {
-              goExpBar.style.width = '100%';
-              if (goLevelUpText) goLevelUpText.style.display = 'block';
-              setTimeout(() => {
-                goExpBar.style.transition = 'none';
-                goExpBar.style.width      = '0%';
-                void goExpBar.offsetHeight;
-                goExpBar.style.transition = 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-                goExpBar.style.width      = endPercent + '%';
-              }, 800);
-            } else {
-              goExpBar.style.width = endPercent + '%';
-              if (goLevelUpText) goLevelUpText.style.display = 'none';
-            }
+          if (data.leveledUp) {
+            goExpBar.style.width = '100%';
+            if (goLevelUpText) goLevelUpText.style.display = 'block';
+            setTimeout(() => {
+              goExpBar.style.transition = 'none';
+              goExpBar.style.width      = '0%';
+              void goExpBar.offsetHeight;
+              goExpBar.style.transition = 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+              goExpBar.style.width      = endPercent + '%';
+            }, 800);
+          } else {
+            goExpBar.style.width = endPercent + '%';
+            if (goLevelUpText) goLevelUpText.style.display = 'none';
           }
         }
-      } catch (err) {
-        console.error('[score parse error]', err);
       }
     }
 
-    // ── Handle nest rewards ──────────────────────────────────────────────
-    if (rewardRes.status === 'fulfilled' && rewardRes.value.ok) {
-      try {
-        const rdata = await rewardRes.value.json();
-        if (rdata.ok) {
-          const container = document.getElementById('goRewardsContainer');
-          const row       = document.getElementById('goRewardsRow');
-          if (container && row) {
-            row.innerHTML = '';
+    // ── Handle nest rewards ───────────────────────────────────────────────
+    if (rewardData && rewardData.ok) {
+      const rdata     = rewardData;
+      const container = document.getElementById('goRewardsContainer');
+      const row       = document.getElementById('goRewardsRow');
+      if (container && row) {
+        row.innerHTML = '';
 
-            // BP always shown if earned (nest reward)
-            if (rdata.bpEarned > 0) {
-              const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-bp';
-              pill.innerHTML = `<img src="images/bp.png" alt="BP" /><span>+${rdata.bpEarned} Battle Points</span>`;
-              row.appendChild(pill);
-            }
-
-            // Seeds/Gold only shown if physically collected in-game
-            if (seedsCollected > 0) {
-              const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-seed';
-              pill.innerHTML = `<img src="images/seed.png" alt="Seed" /><span>+${seedsCollected} Seeds collected</span>`;
-              row.appendChild(pill);
-            }
-            if (goldCollected > 0) {
-              const pill = document.createElement('div');
-              pill.className = 'go-reward-pill go-reward-gold';
-              pill.innerHTML = `<img src="images/gold.png" alt="Gold" /><span>+${goldCollected} Gold collected</span>`;
-              row.appendChild(pill);
-            }
-
-            if (row.children.length > 0) container.style.display = 'block';
-          }
+        if (rdata.bpEarned > 0) {
+          const pill = document.createElement('div');
+          pill.className = 'go-reward-pill go-reward-bp';
+          pill.innerHTML = `<img src="images/bp.png" alt="BP" /><span>+${rdata.bpEarned} Battle Points</span>`;
+          row.appendChild(pill);
         }
-      } catch (err) {
-        console.error('[reward parse error]', err);
+        if (rdata.seedsEarned > 0) {
+          const pill = document.createElement('div');
+          pill.className = 'go-reward-pill go-reward-seed';
+          pill.innerHTML = `<img src="images/seed.png" alt="Seed" /><span>+${rdata.seedsEarned} Seeds</span>`;
+          row.appendChild(pill);
+        }
+        if (rdata.goldEarned > 0) {
+          const pill = document.createElement('div');
+          pill.className = 'go-reward-pill go-reward-gold';
+          pill.innerHTML = `<img src="images/gold.png" alt="Gold" /><span>+${rdata.goldEarned} Gold</span>`;
+          row.appendChild(pill);
+        }
+        if (row.children.length > 0) container.style.display = 'block';
       }
     }
   }

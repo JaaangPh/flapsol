@@ -251,22 +251,42 @@
       <!-- Rarity header bar -->
       <div id="itemModalHeader" style="padding:16px 20px 14px;display:flex;align-items:center;gap:14px;">
         <img id="itemModalImg" src="" alt="" style="width:72px;height:72px;object-fit:contain;image-rendering:pixelated;border-radius:10px;background:#08081a;padding:6px;flex-shrink:0;" />
-        <div style="min-width:0;">
+        <div style="min-width:0;flex:1;">
           <div id="itemModalRarity" style="font-size:.55rem;font-family:'Press Start 2P',cursive;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;"></div>
-          <div id="itemModalName" style="font-size:.85rem;font-weight:800;color:#fff;margin-bottom:4px;word-break:break-word;"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <div id="itemModalName" style="font-size:.85rem;font-weight:800;color:#fff;word-break:break-word;"></div>
+            <span id="nestLevelBadge" style="display:none;font-size:.6rem;font-family:'Press Start 2P',cursive;background:rgba(255,208,50,.15);border:1px solid rgba(255,208,50,.3);color:#ffd050;border-radius:6px;padding:2px 6px;white-space:nowrap;flex-shrink:0;"></span>
+          </div>
           <div id="itemModalDate" style="font-size:.72rem;color:rgba(255,255,255,.4);"></div>
         </div>
       </div>
 
-      <!-- Divider -->
-      <div style="height:1px;background:rgba(255,255,255,.07);margin:0 20px;"></div>
+      <!-- Tab switcher (nests only — hidden for others) -->
+      <div id="itemModalTabs" style="display:none;padding:0 20px;margin-top:14px;">
+        <div class="im-tab-bar">
+          <button class="im-tab active" id="imTabInfo">ℹ️ Info</button>
+          <button class="im-tab" id="imTabUpgrade">⬆ Upgrade</button>
+        </div>
+      </div>
 
-      <!-- Payment info -->
+      <!-- Divider -->
+      <div style="height:1px;background:rgba(255,255,255,.07);margin:12px 20px 0;"></div>
+
+      <!-- Tab panels -->
       <div style="padding:14px 20px 18px;">
-        <div id="itemModalPayment" style="margin-bottom:14px;"></div>
-        <!-- Energy info (nests only) -->
-        <div id="itemModalEnergy" style="display:none;margin-bottom:14px;"></div>
-        <div class="modal-actions" style="margin-top:0;">
+
+        <!-- ── INFO panel ── -->
+        <div id="imPanelInfo">
+          <div id="itemModalPayment" style="margin-bottom:12px;"></div>
+          <div id="itemModalEnergy" style="display:none;"></div>
+        </div>
+
+        <!-- ── UPGRADE panel ── -->
+        <div id="imPanelUpgrade" style="display:none;">
+          <div id="itemModalUpgrade"></div>
+        </div>
+
+        <div class="modal-actions" style="margin-top:14px;">
           <button class="modal-btn-cancel" id="itemModalClose" style="width:100%;">Close</button>
         </div>
       </div>
@@ -808,15 +828,16 @@
     // ── Drop rate calculation (mirrors backend + game.js logic) ──────────────
     const DR_CFG = {
       free:      { seedPct: 0.02,  goldPct: 0,     bpMin: 1,  bpMax: 20  },
-      common:    { seedPct: 0.10,  goldPct: 0.05,  bpMin: 21, bpMax: 40  },
-      rare:      { seedPct: 0.15,  goldPct: 0.10,  bpMin: 41, bpMax: 70  },
-      legendary: { seedPct: 0.25,  goldPct: 0.17,  bpMin: 71, bpMax: 100 },
+      common:    { seedPct: 0.08,  goldPct: 0.03,  bpMin: 21, bpMax: 40  },
+      rare:      { seedPct: 0.14,  goldPct: 0.07,  bpMin: 41, bpMax: 70  },
+      legendary: { seedPct: 0.20,  goldPct: 0.12,  bpMin: 71, bpMax: 100 },
     };
     const DR_TRIPLE = {
-      common:    { seedBonus: 0.05, goldBonus: 0.02 },
-      rare:      { seedBonus: 0.07, goldBonus: 0.05 },
-      legendary: { seedBonus: 0.10, goldBonus: 0.07 },
+      common:    { seedBonus: 0.03, goldBonus: 0.01 },
+      rare:      { seedBonus: 0.04, goldBonus: 0.02 },
+      legendary: { seedBonus: 0.05, goldBonus: 0.03 },
     };
+    const DR_MAX_STACK   = 3;
     const DR_RARITY_ORDER = ['free', 'common', 'rare', 'legendary'];
 
     function renderDropRates(inventoryItems) {
@@ -829,7 +850,7 @@
         panel.innerHTML = `
           <div class="drop-rate-nonest">
             <span>🪹</span>
-            <span>No nests — collectibles won't spawn in game</span>
+            <span>No nests owned — collectibles won't spawn in game</span>
           </div>`;
         return;
       }
@@ -838,48 +859,101 @@
       for (const n of nests) { if (counts[n.rarity] !== undefined) counts[n.rarity]++; }
 
       let sp = 0, gp = 0;
+
+      // Stacking capped at DR_MAX_STACK per rarity
       for (const [r, cnt] of Object.entries(counts)) {
         if (!cnt) continue;
         const cfg = DR_CFG[r];
         if (!cfg) continue;
-        sp += cfg.seedPct * cnt;
-        gp += cfg.goldPct * cnt;
+        sp += cfg.seedPct * Math.min(cnt, DR_MAX_STACK);
+        gp += cfg.goldPct * Math.min(cnt, DR_MAX_STACK);
       }
 
-      const bonusLines = [];
+      // Triple bonus (flat, once per rarity at 3+)
+      const activeBonuses = [];
       for (const [r, bonus] of Object.entries(DR_TRIPLE)) {
-        if ((counts[r] || 0) >= 3) {
+        if ((counts[r] || 0) >= DR_MAX_STACK) {
           sp += bonus.seedBonus;
           gp += bonus.goldBonus;
-          bonusLines.push(`3× ${r[0].toUpperCase() + r.slice(1)} bonus active`);
+          activeBonuses.push({ rarity: r, seed: bonus.seedBonus, gold: bonus.goldBonus });
         }
       }
+
       sp = Math.min(sp, 1.0);
       gp = Math.min(gp, 1.0);
 
+      // Rarest nest for BP
       let rarestRarity = 'free';
       for (const r of DR_RARITY_ORDER) { if (counts[r] > 0) rarestRarity = r; }
       const bpCfg = DR_CFG[rarestRarity];
 
-      const pct = v => (v * 100).toFixed(1) + '%';
-      const bar = (v, cls) => `
-        <div class="dr-bar-bg">
-          <div class="dr-bar-fill ${cls}" style="width:${Math.min(v * 100, 100).toFixed(1)}%"></div>
-        </div>`;
+      const pct    = v  => (v * 100).toFixed(1) + '%';
+      const barFill = v => `<div class="dr-bar-bg"><div class="dr-bar-fill ${v > 0.5 ? 'dr-bar-high' : ''}" style="width:${Math.min(v * 100, 100).toFixed(1)}%;background:${v >= 0.5 ? 'linear-gradient(90deg,#ffd050,#ffb300)' : v > 0 ? 'linear-gradient(90deg,#ffd050aa,#ffb300aa)' : '#333'}"></div></div>`;
+
+      // Per-rarity breakdown rows
+      const rarityRows = DR_RARITY_ORDER
+        .filter(r => counts[r] > 0)
+        .map(r => {
+          const cfg = DR_CFG[r];
+          const cnt = counts[r];
+          const capped = Math.min(cnt, DR_MAX_STACK);
+          const capNote = cnt > DR_MAX_STACK ? ` <span class="dr-cap-note">(capped at ${DR_MAX_STACK})</span>` : '';
+          const rarityColors = { free: '#aaa', common: '#aaa', rare: '#5bb8f5', legendary: '#f0b840' };
+          const col = rarityColors[r] || '#aaa';
+          return `
+            <div class="dr-nest-row">
+              <img src="images/nest/${r}.png" alt="${r}" class="dr-nest-img" />
+              <div class="dr-nest-info">
+                <span class="dr-nest-name" style="color:${col}">${r[0].toUpperCase()+r.slice(1)} ×${cnt}${capNote}</span>
+                <span class="dr-nest-rates">🌱 ${pct(cfg.seedPct * capped)} &nbsp;💰 ${pct(cfg.goldPct * capped)}</span>
+              </div>
+            </div>`;
+        }).join('');
+
+      // Active bonuses
+      const bonusHTML = activeBonuses.length ? `
+        <div class="dr-bonus-section">
+          ${activeBonuses.map(b => `
+            <div class="dr-bonus-row">
+              <span class="dr-bonus-tag">✨ 3× ${b.rarity[0].toUpperCase()+b.rarity.slice(1)} Bonus</span>
+              <span class="dr-bonus-vals">+${pct(b.seed)} 🌱 &nbsp; +${pct(b.gold)} 💰</span>
+            </div>`).join('')}
+        </div>` : '';
 
       panel.innerHTML = `
-        <div class="dr-row">
-          <div class="dr-label"><img src="images/seed.png" alt="seed" class="dr-icon" /><span>Seed spawn</span></div>
-          <span class="dr-pct dr-pct-seed">${pct(sp)}</span>
-          ${bar(sp, 'dr-bar-seed')}
+        <div class="dr-section-title">Your Nests</div>
+        ${rarityRows}
+        ${bonusHTML}
+        <div class="dr-divider"></div>
+        <div class="dr-section-title">Total Drop Rate</div>
+        <div class="dr-total-row">
+          <div class="dr-total-item">
+            <img src="images/seed.png" alt="seed" class="dr-icon" />
+            <span class="dr-total-label">Seed</span>
+            <span class="dr-total-pct dr-pct-seed">${pct(sp)}</span>
+          </div>
+          <div class="dr-total-item">
+            <img src="images/gold.png" alt="gold" class="dr-icon" />
+            <span class="dr-total-label">Gold</span>
+            <span class="dr-total-pct dr-pct-gold">${pct(gp)}</span>
+          </div>
+          <div class="dr-total-item">
+            <img src="images/bp.png" alt="bp" class="dr-icon" />
+            <span class="dr-total-label">BP / game</span>
+            <span class="dr-total-pct dr-pct-bp">${bpCfg.bpMin}–${bpCfg.bpMax}</span>
+          </div>
         </div>
-        <div class="dr-row">
-          <div class="dr-label"><img src="images/gold.png" alt="gold" class="dr-icon" /><span>Gold spawn</span></div>
-          <span class="dr-pct dr-pct-gold">${pct(gp)}</span>
-          ${bar(gp, 'dr-bar-gold')}
+        <div class="dr-bar-row">
+          <span class="dr-bar-label">🌱</span>
+          ${barFill(sp)}
+          <span class="dr-bar-pct">${pct(sp)}</span>
         </div>
-        ${bonusLines.length ? `<div class="dr-bonus">${bonusLines.map(b => `<span>✨ ${b}</span>`).join('')}</div>` : ''}
-        <div class="dr-hint">Per-pipe chance · ${nests.length} nest${nests.length > 1 ? 's' : ''} owned</div>
+        <div class="dr-bar-row">
+          <span class="dr-bar-label">💰</span>
+          ${barFill(gp)}
+          <span class="dr-bar-pct">${pct(gp)}</span>
+        </div>
+        <div class="dr-hint">Per-pipe spawn chance · ${nests.length} nest${nests.length > 1 ? 's' : ''} · stacking capped at ×${DR_MAX_STACK}</div>
       `;
     }
 
@@ -1000,175 +1074,191 @@
       const item = inventory[index];
       if (!item) return;
 
-      const modal     = document.getElementById('itemModal');
-      const box       = document.getElementById('itemModalBox');
-      const header    = document.getElementById('itemModalHeader');
-      const img       = document.getElementById('itemModalImg');
-      const rarityEl  = document.getElementById('itemModalRarity');
-      const nameEl    = document.getElementById('itemModalName');
-      const dateEl    = document.getElementById('itemModalDate');
-      const payEl     = document.getElementById('itemModalPayment');
-      const energyEl  = document.getElementById('itemModalEnergy');
+      const modal      = document.getElementById('itemModal');
+      const box        = document.getElementById('itemModalBox');
+      const img        = document.getElementById('itemModalImg');
+      const rarityEl   = document.getElementById('itemModalRarity');
+      const nameEl     = document.getElementById('itemModalName');
+      const dateEl     = document.getElementById('itemModalDate');
+      const payEl      = document.getElementById('itemModalPayment');
+      const energyEl   = document.getElementById('itemModalEnergy');
+      const tabsEl     = document.getElementById('itemModalTabs');
+      const panelInfo  = document.getElementById('imPanelInfo');
+      const panelUpg   = document.getElementById('imPanelUpgrade');
+      const upgradeEl  = document.getElementById('itemModalUpgrade');
+      const lvlBadge   = document.getElementById('nestLevelBadge');
 
-      // Stop any previous nest modal timer
+      // Reset
       if (_nestModalTimerInt) { clearInterval(_nestModalTimerInt); _nestModalTimerInt = null; }
-      if (energyEl) energyEl.style.display = 'none';
+      if (energyEl)  energyEl.style.display  = 'none';
+      if (upgradeEl) upgradeEl.innerHTML      = '';
+      if (lvlBadge)  lvlBadge.style.display   = 'none';
+      if (tabsEl)    tabsEl.style.display      = 'none';
+      if (panelInfo) panelInfo.style.display   = 'block';
+      if (panelUpg)  panelUpg.style.display    = 'none';
 
+      // ── Seeds ─────────────────────────────────────────────────────────────
       if (item.type === 'seeds') {
         box.style.border    = '2px solid #4caf50';
         box.style.boxShadow = '0 0 24px #4caf5044';
-        header.style.borderBottom = 'none';
         img.style.display   = '';
-        img.src = 'images/seed.png';
-        img.alt = 'Seeds';
-        img.style.border = '2px solid #4caf50';
-        rarityEl.textContent = 'consumable';
-        rarityEl.style.color = '#6fff6f';
-        nameEl.textContent   = `Seeds  ×${(item.qty || 0).toLocaleString()}`;
+        img.src = 'images/seed.png'; img.alt = 'Seeds'; img.style.border = '2px solid #4caf50';
+        rarityEl.textContent = 'consumable'; rarityEl.style.color = '#6fff6f';
+        nameEl.textContent   = `Seeds ×${(item.qty || 0).toLocaleString()}`;
         dateEl.textContent   = '';
-        payEl.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;background:rgba(76,175,80,.07);
-            border:1px solid rgba(76,175,80,.2);border-radius:10px;padding:10px 14px;">
-            <img src="images/seed.png" alt="Seed" style="width:22px;height:22px;object-fit:contain;image-rendering:pixelated;" />
-            <div>
-              <div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Collected in gameplay</div>
-              <div style="font-size:1rem;font-weight:800;color:#6fff6f;">${(item.qty || 0).toLocaleString()} Seeds</div>
-            </div>
-          </div>
-          <p style="font-size:.78rem;color:rgba(255,255,255,.45);margin-top:10px;line-height:1.5;">Seeds are dropped while playing. Collect them mid-flight!</p>`;
+        payEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:rgba(76,175,80,.07);border:1px solid rgba(76,175,80,.2);border-radius:10px;padding:10px 14px;"><img src="images/seed.png" alt="Seed" style="width:22px;height:22px;object-fit:contain;image-rendering:pixelated;" /><div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Collected in gameplay</div><div style="font-size:1rem;font-weight:800;color:#6fff6f;">${(item.qty||0).toLocaleString()} Seeds</div></div></div><p style="font-size:.78rem;color:rgba(255,255,255,.45);margin-top:10px;line-height:1.5;">Seeds are dropped while playing.</p>`;
         modal.style.display = 'flex';
         return;
       }
-
       if (item.type === 'nest') {
         const rarityColor  = NEST_RARITY_COLOR[item.rarity]  || '#aaa';
         const rarityBorder = NEST_RARITY_BORDER[item.rarity] || '#888';
 
         box.style.border    = '2px solid ' + rarityBorder;
         box.style.boxShadow = '0 0 24px ' + rarityBorder + '44';
-        header.style.borderBottom = 'none';
         img.style.display   = '';
-
         img.src = item.image || ('images/nest/' + item.rarity + '.png');
         img.alt = item.nestTag || '';
         img.style.border = '2px solid ' + rarityBorder;
 
-        rarityEl.textContent = item.rarity;
-        rarityEl.style.color = rarityColor;
+        rarityEl.textContent = item.rarity; rarityEl.style.color = rarityColor;
         nameEl.textContent   = item.nestTag || item.baseName || '—';
-        dateEl.textContent   = item.purchasedAt
-          ? 'Purchased: ' + new Date(item.purchasedAt).toLocaleDateString()
-          : '';
+        dateEl.textContent   = item.purchasedAt ? 'Purchased: ' + new Date(item.purchasedAt).toLocaleDateString() : '';
 
-        // Payment info
+        if (lvlBadge && item.rarity !== 'free') {
+          const lvl = item.level || 0;
+          lvlBadge.textContent   = lvl >= 5 ? '★ MAX' : `Lvl ${lvl}`;
+          lvlBadge.style.display = '';
+        }
+        // ── INFO: Payment ─────────────────────────────────────────────────────
         const method = item.paymentMethod || 'sol';
         if (method === 'free') {
-          payEl.innerHTML =
-            '<div style="display:flex;align-items:center;gap:8px;background:rgba(153,69,255,.07);' +
-            'border:1px solid rgba(153,69,255,.2);border-radius:10px;padding:10px 14px;">' +
-            '<span style="font-size:1.3rem;">🎁</span>' +
-            '<div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Free Starter Nest</div>' +
-            '<div style="font-size:.9rem;font-weight:700;color:rgba(255,255,255,.7);">Given on account creation</div></div></div>';
+          payEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:rgba(153,69,255,.07);border:1px solid rgba(153,69,255,.2);border-radius:10px;padding:10px 14px;"><span style="font-size:1.3rem;">🎁</span><div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Free Starter Nest</div><div style="font-size:.9rem;font-weight:700;color:rgba(255,255,255,.7);">Given on account creation</div></div></div>';
         } else if (method === 'gold') {
           const goldAmt = item.priceGold != null ? item.priceGold.toLocaleString() : '—';
-          payEl.innerHTML =
-            '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,208,80,.07);' +
-            'border:1px solid rgba(255,208,80,.2);border-radius:10px;padding:10px 14px;">' +
-            '<img src="images/gold.png" alt="Gold" style="width:22px;height:22px;object-fit:contain;">' +
-            '<div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Paid with $GOLD</div>' +
-            '<div style="font-size:1rem;font-weight:800;color:#ffd050;">' + goldAmt + ' $GOLD</div></div></div>';
+          payEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,208,80,.07);border:1px solid rgba(255,208,80,.2);border-radius:10px;padding:10px 14px;"><img src="images/gold.png" alt="Gold" style="width:22px;height:22px;object-fit:contain;"><div><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Paid with $GOLD</div><div style="font-size:1rem;font-weight:800;color:#ffd050;">' + goldAmt + ' $GOLD</div></div></div>';
         } else {
           const solAmt = item.price != null ? item.price : (item.priceSol != null ? item.priceSol : null);
           const txSig  = item.txSignature || null;
-          payEl.innerHTML =
-            '<div style="display:flex;align-items:center;gap:8px;background:rgba(20,241,149,.05);' +
-            'border:1px solid rgba(20,241,149,.15);border-radius:10px;padding:10px 14px;">' +
-            '<img src="images/solana.png" alt="SOL" style="width:22px;height:22px;object-fit:contain;">' +
-            '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Paid with SOL</div>' +
-            '<div style="font-size:1rem;font-weight:800;color:var(--sol-green);">' + (solAmt != null ? solAmt + ' SOL' : '—') + '</div>' +
-            (txSig ? '<a href="https://solscan.io/tx/' + txSig + '" target="_blank" style="font-size:.7rem;color:var(--sol-green);opacity:.75;word-break:break-all;">View TX ↗</a>' : '') +
-            '</div></div>';
+          payEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:rgba(20,241,149,.05);border:1px solid rgba(20,241,149,.15);border-radius:10px;padding:10px 14px;"><img src="images/solana.png" alt="SOL" style="width:22px;height:22px;object-fit:contain;"><div style="flex:1;min-width:0;"><div style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;">Paid with SOL</div><div style="font-size:1rem;font-weight:800;color:var(--sol-green);">' + (solAmt != null ? solAmt + ' SOL' : '—') + '</div>' + (txSig ? '<a href="https://solscan.io/tx/' + txSig + '" target="_blank" style="font-size:.7rem;color:var(--sol-green);opacity:.75;word-break:break-all;">View TX ↗</a>' : '') + '</div></div>';
         }
 
-        // ── Energy section ──────────────────────────────────────────────────
-        if (energyEl) {
+        // ── INFO: Energy ───────────────────────────────────────────────────
+        {
           const eData = await ensureEnergyData();
-          const ENERGY_CONFIG = { free: { slotBonus: 0, regenMs: 86400000 }, common: { slotBonus: 0, regenMs: 5400000 }, rare: { slotBonus: 10, regenMs: 3600000 }, legendary: { slotBonus: 20, regenMs: 1800000 } };
-          const BASE_SLOTS = 20;
-          const cfg = ENERGY_CONFIG[item.rarity] || { slotBonus: 0, regenMs: 86400000 };
-
-          // Find this nest's timer from energy API
-          let nextTickAt = null;
-          if (eData && eData.nests) {
-            const nestInfo = eData.nests.find(n => n.nestId === item.id);
-            if (nestInfo) nextTickAt = nestInfo.nextTickAt;
-          }
-
-          const totalEnergy   = eData ? eData.energy    : '…';
-          const totalMaxEnergy = eData ? eData.maxEnergy : '…';
-
-          // Regen label per rarity
-          const regenLabels = { free: '4h', common: '1.5h', rare: '1h', legendary: '30m' };
+          const regenLabels = { free:'4h', common:'1.5h', rare:'1h', legendary:'30m' };
+          const dropLabels  = { free:{seed:'2%',gold:'0%'}, common:{seed:'8%',gold:'3%'}, rare:{seed:'14%',gold:'7%'}, legendary:{seed:'20%',gold:'12%'} };
           const regenLabel  = regenLabels[item.rarity] || '?';
-
-          function buildEnergyHTML(msLeft) {
-            const timerStr = msLeft !== null ? msToHMS(msLeft) : '…';
-            return `
-              <div style="background:rgba(255,194,0,.06);border:1px solid rgba(255,194,0,.2);border-radius:10px;padding:11px 14px;">
-                <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
-                  <img src="images/energy.png" alt="energy" style="width:18px;height:18px;object-fit:contain;image-rendering:pixelated;" />
-                  <span style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;">Energy</span>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-                  <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;">
-                    <div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">This Nest</div>
-                    <div style="font-size:1.1rem;font-weight:800;color:#ffc200;font-family:monospace;">${cfg.slots} slot${cfg.slots > 1 ? 's' : ''}</div>
-                  </div>
-                  <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;">
-                    <div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Total Energy</div>
-                    <div style="font-size:1.1rem;font-weight:800;color:#ffc200;font-family:monospace;">${totalEnergy} / ${totalMaxEnergy}</div>
-                  </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <div style="font-size:.72rem;color:rgba(255,255,255,.45);">⚡ Generates <strong style="color:#ffc200;">+1</strong> every <strong style="color:#ffc200;">${regenLabel}</strong></div>
-                  <div id="nestTimerDisplay" style="font-size:.75rem;font-weight:700;color:#ffc200;font-family:monospace;background:rgba(255,194,0,.1);border:1px solid rgba(255,194,0,.2);border-radius:6px;padding:3px 8px;">${timerStr}</div>
-                </div>
-              </div>`;
-          }
-
-          const msLeft = nextTickAt ? Math.max(0, new Date(nextTickAt).getTime() - Date.now()) : null;
-          energyEl.innerHTML = buildEnergyHTML(msLeft);
+          const drops       = dropLabels[item.rarity]  || { seed:'—', gold:'—' };
+          let nextTickAt = null;
+          if (eData && eData.nests) { const ni = eData.nests.find(n => n.nestId === item.id); if (ni) nextTickAt = ni.nextTickAt; }
+          const totalEnergy    = eData ? eData.energy    : '…';
+          const totalMaxEnergy = eData ? eData.maxEnergy : '…';
+          const timerStr = nextTickAt ? msToHMS(Math.max(0, new Date(nextTickAt).getTime() - Date.now())) : '…';
+          energyEl.innerHTML = `<div style="background:rgba(255,194,0,.06);border:1px solid rgba(255,194,0,.2);border-radius:10px;padding:11px 14px;margin-top:12px;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;"><img src="images/energy.png" alt="energy" style="width:18px;height:18px;object-fit:contain;image-rendering:pixelated;" /><span style="font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;">Energy</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;"><div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;"><div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Total Energy</div><div style="font-size:1.1rem;font-weight:800;color:#ffc200;font-family:monospace;">${totalEnergy} / ${totalMaxEnergy}</div></div><div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;"><div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Regen</div><div style="font-size:.95rem;font-weight:800;color:#ffc200;font-family:monospace;">+1 / ${regenLabel}</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;"><div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;"><div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">🌱 Seed Drop</div><div style="font-size:1rem;font-weight:800;color:#6ef87a;font-family:monospace;">${drops.seed}</div></div><div style="background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;text-align:center;"><div style="font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">💰 Gold Drop</div><div style="font-size:1rem;font-weight:800;color:#ffd050;font-family:monospace;">${drops.gold}</div></div></div><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:.72rem;color:rgba(255,255,255,.45);">⏱ Next energy in</div><div id="nestTimerDisplay" style="font-size:.75rem;font-weight:700;color:#ffc200;font-family:monospace;background:rgba(255,194,0,.1);border:1px solid rgba(255,194,0,.2);border-radius:6px;padding:3px 8px;">${timerStr}</div></div></div>`;
           energyEl.style.display = 'block';
-
-          // Live countdown for this specific nest
           if (nextTickAt) {
             _nestModalTimerInt = setInterval(() => {
-              const remaining = Math.max(0, new Date(nextTickAt).getTime() - Date.now());
-              const timerEl = document.getElementById('nestTimerDisplay');
-              if (timerEl) timerEl.textContent = msToHMS(remaining);
-              if (remaining <= 0) {
-                clearInterval(_nestModalTimerInt);
-                _nestModalTimerInt = null;
-                _energyData = null; // invalidate cache
-                if (timerEl) timerEl.textContent = 'Ready!';
-              }
+              const rem = Math.max(0, new Date(nextTickAt).getTime() - Date.now());
+              const el  = document.getElementById('nestTimerDisplay');
+              if (el) el.textContent = msToHMS(rem);
+              if (rem <= 0) { clearInterval(_nestModalTimerInt); _nestModalTimerInt = null; _energyData = null; if (el) el.textContent = 'Ready!'; }
             }, 1000);
           }
         }
 
+        // ── UPGRADE panel (non-free only) ──────────────────────────────────
+        if (item.rarity !== 'free' && tabsEl && upgradeEl) {
+          tabsEl.style.display = 'block';
+          const UPGRADE_COSTS = [null,{bp:350,seeds:50,gold:50000},{bp:500,seeds:110,gold:120000},{bp:800,seeds:160,gold:250000},{bp:1000,seeds:220,gold:350000},{bp:1300,seeds:300,gold:500000}];
+          const MAX_LEVEL    = 5;
+          const currentLevel = item.level || 0;
+          const nextLevel    = currentLevel + 1;
+          const starsHTML    = (n) => Array.from({length:MAX_LEVEL},(_,i)=>`<span style="font-size:1.2rem;color:${i<n?'#ffd050':'rgba(255,255,255,.12)'};">★</span>`).join('');
+
+          if (currentLevel >= MAX_LEVEL) {
+            upgradeEl.innerHTML = `<div class="nest-upgrade-box" style="border-color:${rarityBorder}44;"><div class="nest-upgrade-header"><span class="nest-upgrade-title">Upgrade</span><span class="nest-upgrade-stars">${starsHTML(MAX_LEVEL)}</span></div><div class="nest-upgrade-maxed">✨ MAX LEVEL REACHED</div></div>`;
+          } else {
+            const cost   = UPGRADE_COSTS[nextLevel];
+            const meRes  = await fetch('/auth/me');
+            const meData = await meRes.json();
+            const userBP    = meData.totalBP     || 0;
+            const userSeeds = meData.seeds       || 0;
+            const userGold  = meData.goldBalance || 0;
+            const canAfford = userBP >= cost.bp && userSeeds >= cost.seeds && userGold >= cost.gold;
+            upgradeEl.innerHTML = `
+              <div class="nest-upgrade-box" style="border-color:${rarityBorder}44;">
+                <div class="nest-upgrade-header">
+                  <span class="nest-upgrade-title">Upgrade to Lvl ${nextLevel}</span>
+                  <span class="nest-upgrade-stars">${starsHTML(currentLevel)}</span>
+                </div>
+                <div class="nest-upgrade-costs">
+                  <div class="nest-upgrade-cost ${userBP>=cost.bp?'':'insufficient'}">
+                    <img src="images/bp.png" alt="BP"/>
+                    <span>${cost.bp.toLocaleString()} BP</span>
+                    <span class="nest-upgrade-have">${userBP.toLocaleString()}</span>
+                  </div>
+                  <div class="nest-upgrade-cost ${userSeeds>=cost.seeds?'':'insufficient'}">
+                    <img src="images/seed.png" alt="Seeds"/>
+                    <span>${cost.seeds.toLocaleString()} Seeds</span>
+                    <span class="nest-upgrade-have">${userSeeds.toLocaleString()}</span>
+                  </div>
+                  <div class="nest-upgrade-cost ${userGold>=cost.gold?'':'insufficient'}">
+                    <img src="images/gold.png" alt="Gold"/>
+                    <span>${cost.gold.toLocaleString()} $GOLD</span>
+                    <span class="nest-upgrade-have">${userGold.toLocaleString()}</span>
+                  </div>
+                </div>
+                <button class="nest-upgrade-btn ${canAfford?'':'cant-afford'}" id="nestUpgradeBtn" ${canAfford?'':'disabled'}>
+                  <span class="nest-upgrade-btn-cost"><img src="images/gold.png" alt="$GOLD" />${cost.gold.toLocaleString()} $GOLD</span>
+                  <span class="nest-upgrade-btn-label">⬆ Upgrade to Lvl ${nextLevel}</span>
+                </button>
+              </div>`;
+            if (canAfford) {
+              document.getElementById('nestUpgradeBtn').addEventListener('click', async () => {
+                const btn = document.getElementById('nestUpgradeBtn');
+                btn.disabled = true; btn.querySelector('.nest-upgrade-btn-label').textContent = '⏳ Upgrading…';
+                try {
+                  const r = await fetch('/api/nest/upgrade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nestId: item.id}) });
+                  const d = await r.json();
+                  if (r.ok && d.ok) {
+                    const idx = inventory.findIndex(i => i.id === item.id);
+                    if (idx !== -1) inventory[idx] = { ...inventory[idx], level: d.newLevel };
+                    item.level = d.newLevel;
+                    document.getElementById('itemModal').style.display = 'none';
+                    _energyData = null;
+                    await selectSlot(selectedSlotIndex);
+                  } else {
+                    showAlert(d.error || 'Upgrade failed.');
+                    btn.disabled = false; btn.querySelector('.nest-upgrade-btn-label').textContent = `⬆ Upgrade to Lvl ${nextLevel}`;
+                  }
+                } catch(e) { showAlert('Network error.'); btn.disabled = false; btn.querySelector('.nest-upgrade-btn-label').textContent = `⬆ Upgrade to Lvl ${nextLevel}`; }
+              });
+            }
+          }
+
+          // Tab switching
+          document.getElementById('imTabInfo').onclick = () => {
+            document.getElementById('imTabInfo').classList.add('active');
+            document.getElementById('imTabUpgrade').classList.remove('active');
+            panelInfo.style.display = 'block'; panelUpg.style.display = 'none';
+          };
+          document.getElementById('imTabUpgrade').onclick = () => {
+            document.getElementById('imTabUpgrade').classList.add('active');
+            document.getElementById('imTabInfo').classList.remove('active');
+            panelUpg.style.display = 'block'; panelInfo.style.display = 'none';
+          };
+        }
+
       } else {
+        // Generic / legacy item
         box.style.border     = '1px solid rgba(153,69,255,.25)';
         box.style.boxShadow  = '';
-        img.src              = '';
-        img.style.display    = 'none';
-        rarityEl.textContent = item.type || '';
-        rarityEl.style.color = 'rgba(255,255,255,.4)';
+        img.src = ''; img.style.display = 'none';
+        rarityEl.textContent = item.type || ''; rarityEl.style.color = 'rgba(255,255,255,.4)';
         nameEl.textContent   = item.name || item.nestTag || '—';
         dateEl.textContent   = '';
-        payEl.innerHTML      = item.desc
-          ? '<p style="font-size:.82rem;color:rgba(255,255,255,.55);line-height:1.5;">' + item.desc + '</p>'
-          : '';
+        payEl.innerHTML      = item.desc ? '<p style="font-size:.82rem;color:rgba(255,255,255,.55);line-height:1.5;">' + item.desc + '</p>' : '';
       }
 
       modal.style.display = 'flex';
@@ -1184,7 +1274,6 @@
         if (_nestModalTimerInt) { clearInterval(_nestModalTimerInt); _nestModalTimerInt = null; }
       }
     });
-
     // ── Navigation & Feature Buttons ─────────────────────────────────────────
     const logoEl = document.querySelector('.dash-logo');
     if (logoEl) logoEl.addEventListener('click', () => { window.location.href = '/dashboard'; });
@@ -1311,9 +1400,9 @@
       <span>Home</span>
     </a>
     <!-- Farm -->
-    <a href="/dashboard" aria-label="Farm">
+    <a href="/farm" aria-label="Farm">
       <div class="nav-icon-wrap">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 2a10 10 0 0 1 0 20"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
       <span>Farm</span>
     </a>

@@ -278,6 +278,8 @@ router.get('/me', async (req, res) => {
     totalBP:       totalBP       || 0,
     seeds:         seeds         || 0,
     walletAddress,
+    eggsHatched:   req.user.eggsHatched || 0,
+    eggBalance:    req.user.eggBalance  || 0,
   });
 });
 

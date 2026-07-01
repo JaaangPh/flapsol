@@ -347,6 +347,160 @@
       transition: color .15s;
     }
     .wl-chip-remove:hover { color: #ff6b6b; }
+    /* ── Rank badges ── */
+    .rank-badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+    .rank-Bronze   { background:rgba(180,130,70,.18); color:#c8922a; border:1px solid rgba(180,130,70,.28); }
+    .rank-Silver   { background:rgba(180,180,200,.1);  color:#ccc;    border:1px solid rgba(200,200,220,.22); }
+    .rank-Gold     { background:rgba(255,208,50,.12);  color:#ffd050; border:1px solid rgba(255,208,50,.28); }
+    .rank-Platinum { background:rgba(80,220,220,.1);   color:#5be0e0; border:1px solid rgba(80,220,220,.22); }
+    .rank-Diamond  { background:rgba(100,180,255,.1);  color:#5bb8f5; border:1px solid rgba(100,180,255,.28); }
+
+    /* ── User row card ── */
+    .urow { border:1px solid rgba(255,255,255,.07); border-radius:14px; margin-bottom:8px; overflow:hidden; transition:border-color .15s; }
+    .urow:hover { border-color:rgba(153,69,255,.35); }
+    .urow.expanded { border-color:rgba(153,69,255,.5); }
+    .urow-head { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; background:rgba(255,255,255,.03); transition:background .12s; user-select:none; }
+    .urow-head:hover { background:rgba(153,69,255,.07); }
+    .urow.expanded .urow-head { background:rgba(153,69,255,.1); }
+    .urow-num { font-size:.72rem; color:rgba(255,255,255,.28); font-weight:700; min-width:22px; }
+    .urow-avatar { width:36px; height:36px; border-radius:50%; background:rgba(153,69,255,.2); border:2px solid rgba(153,69,255,.35); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; font-size:1rem; }
+    .urow-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .urow-main { flex:1; min-width:0; }
+    .urow-name { font-size:.88rem; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .urow-email { font-size:.72rem; color:rgba(255,255,255,.38); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .urow-meta { display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
+    .urow-stat { font-size:.72rem; color:rgba(255,255,255,.5); white-space:nowrap; }
+    .urow-stat b { color:#fff; }
+    .urow-chevron { color:rgba(255,255,255,.3); font-size:.75rem; transition:transform .2s; flex-shrink:0; }
+    .urow.expanded .urow-chevron { transform:rotate(180deg); color:#c890ff; }
+
+    /* ── Expanded detail ── */
+    .urow-detail { display:none; border-top:1px solid rgba(153,69,255,.18); background:rgba(10,16,40,.6); padding:20px 16px; animation:detailIn .18s ease; }
+    @keyframes detailIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .urow.expanded .urow-detail { display:block; }
+
+    .detail-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+    .detail-block { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:14px; }
+    .detail-block-title { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:rgba(153,69,255,.8); margin-bottom:10px; }
+    .detail-field { margin-bottom:8px; }
+    .detail-label { font-size:.62rem; color:rgba(255,255,255,.35); margin-bottom:2px; text-transform:uppercase; letter-spacing:.5px; }
+    .detail-value { font-size:.82rem; color:#fff; font-weight:600; word-break:break-all; }
+    .detail-value.mono  { font-family:'Courier New',monospace; font-size:.75rem; color:rgba(255,255,255,.75); }
+    .detail-value.gold  { color:#ffd050; }
+    .detail-value.green { color:#14f195; }
+    .detail-value.amber { color:#f0b840; }
+    .detail-value.seed  { color:#f0b840; font-family:'Courier New',monospace; font-size:.72rem; display:none; line-height:1.6; word-break:break-word; }
+
+    .nest-list { display:flex; flex-direction:column; gap:6px; }
+    .nest-item { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:8px 10px; }
+    .nest-item img { width:32px; height:32px; object-fit:contain; image-rendering:pixelated; flex-shrink:0; }
+    .nest-item-info { flex:1; min-width:0; }
+    .nest-item-name { font-size:.76rem; font-weight:700; color:#fff; }
+    .nest-item-meta { font-size:.62rem; color:rgba(255,255,255,.38); margin-top:2px; }
+    .nest-rarity-common    { color:#aaa; }
+    .nest-rarity-rare      { color:#5bb8f5; }
+    .nest-rarity-legendary { color:#f0b840; }
+    .nest-rarity-free      { color:rgba(255,255,255,.3); }
+
+    .detail-row-ctrl { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .ctrl-btn { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:7px; color:rgba(255,255,255,.6); font-size:.72rem; padding:4px 10px; cursor:pointer; transition:background .15s,color .15s; white-space:nowrap; }
+    .ctrl-btn:hover { background:rgba(153,69,255,.2); color:#c890ff; border-color:rgba(153,69,255,.4); }
+
+    /* Pagination */
+    .pg-btn { padding:6px 14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:9px; color:rgba(255,255,255,.55); font-size:.8rem; font-weight:700; cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+    .pg-btn:hover:not(:disabled) { background:rgba(153,69,255,.2); color:#c890ff; border-color:rgba(153,69,255,.4); }
+    .pg-btn.active { background:linear-gradient(135deg,#9945ff,#14f195); border-color:transparent; color:#fff; cursor:default; }
+    .pg-btn:disabled { opacity:.3; cursor:not-allowed; }
+    .pg-info { font-size:.75rem; color:rgba(255,255,255,.35); padding:0 4px; }
+
+    .copy-btn { background:none; border:none; color:rgba(255,255,255,.3); cursor:pointer; font-size:.8rem; padding:2px 4px; transition:color .15s; flex-shrink:0; }
+    .copy-btn:hover { color:#14f195; }
+
+    /* ── Profile Modal ── */
+    .pm-shell {
+      width:100%; max-width:600px; max-height:88vh;
+      background:linear-gradient(160deg,#0c1830,#080f22);
+      border:1px solid rgba(153,69,255,.35);
+      border-radius:20px; overflow:hidden;
+      display:flex; flex-direction:column;
+      animation:pmIn .22s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 32px 80px rgba(0,0,0,.9);
+    }
+    @keyframes pmIn { from{transform:scale(.92) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+
+    /* Header */
+    .pm-header { display:flex; align-items:center; gap:14px; padding:20px 20px 16px; border-bottom:1px solid rgba(255,255,255,.07); flex-shrink:0; }
+    .pm-avatar { width:56px; height:56px; border-radius:50%; background:rgba(153,69,255,.2); border:2px solid rgba(153,69,255,.4); display:flex; align-items:center; justify-content:center; font-size:1.6rem; overflow:hidden; flex-shrink:0; }
+    .pm-avatar img { width:100%; height:100%; object-fit:cover; }
+    .pm-hinfo { flex:1; min-width:0; }
+    .pm-hname { font-size:1rem; font-weight:900; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px; }
+    .pm-hemail { font-size:.75rem; color:rgba(255,255,255,.4); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px; }
+    .pm-hbadges { display:flex; gap:6px; flex-wrap:wrap; }
+    .pm-close { width:36px; height:36px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:10px; color:rgba(255,255,255,.5); font-size:.9rem; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s,color .15s; }
+    .pm-close:hover { background:rgba(255,60,60,.2); color:#ff8a94; }
+
+    /* Tabs */
+    .pm-tabs { display:flex; border-bottom:1px solid rgba(255,255,255,.07); flex-shrink:0; background:rgba(0,0,0,.2); }
+    .pm-tab { flex:1; padding:11px 8px; background:none; border:none; color:rgba(255,255,255,.4); font-size:.78rem; font-weight:700; cursor:pointer; transition:color .15s,border-bottom .15s; border-bottom:2px solid transparent; font-family:'Segoe UI',system-ui,sans-serif; }
+    .pm-tab:hover { color:rgba(255,255,255,.75); }
+    .pm-tab.active { color:#fff; border-bottom-color:var(--purple); }
+
+    /* Body */
+    .pm-body { display:none; padding:18px 20px 20px; overflow-y:auto; flex:1; scrollbar-width:thin; scrollbar-color:rgba(153,69,255,.3) transparent; }
+    .pm-body.active { display:block; }
+    .pm-body::-webkit-scrollbar { width:5px; }
+    .pm-body::-webkit-scrollbar-thumb { background:rgba(153,69,255,.3); border-radius:4px; }
+
+    /* Profile grid */
+    .pm-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+    .pm-block { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:14px; }
+    .pm-block-title { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:rgba(153,69,255,.75); margin-bottom:10px; }
+    .pm-field { display:flex; flex-direction:column; margin-bottom:8px; gap:1px; }
+    .pm-lbl { font-size:.58rem; color:rgba(255,255,255,.32); text-transform:uppercase; letter-spacing:.5px; }
+    .pm-val { font-size:.82rem; color:#fff; font-weight:600; word-break:break-all; }
+    .pm-val.mono { font-family:'Courier New',monospace; font-size:.72rem; color:rgba(255,255,255,.75); }
+    .pm-val.small { font-size:.68rem; }
+    .pm-val.gold  { color:#ffd050; }
+    .pm-val.amber { color:#f0b840; }
+    .pm-val.green { color:#14f195; }
+
+    .pm-stat-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .pm-stat-icon { font-size:1.3rem; flex-shrink:0; }
+    .pm-stat-val { font-size:1rem; font-weight:900; color:#fff; line-height:1; }
+    .pm-stat-lbl { font-size:.6rem; color:rgba(255,255,255,.35); margin-top:2px; text-transform:uppercase; letter-spacing:.5px; }
+
+    /* Wallet tab */
+    .pm-secret-row { display:flex; align-items:flex-start; gap:10px; margin-top:6px; margin-bottom:8px; }
+    .pm-secret-val { flex:1; font-family:'Courier New',monospace; font-size:.76rem; color:rgba(255,255,255,.85); background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:10px 12px; word-break:break-all; line-height:1.6; display:block; }
+    .pm-secret-val.hidden { color:rgba(255,255,255,.2); letter-spacing:.1rem; user-select:none; }
+    .pm-toggle { padding:7px 12px; background:rgba(153,69,255,.15); border:1px solid rgba(153,69,255,.3); border-radius:8px; color:#c890ff; font-size:.75rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s; }
+    .pm-toggle:hover { background:rgba(153,69,255,.28); }
+    .pm-copy { padding:7px 12px; background:rgba(20,241,149,.08); border:1px solid rgba(20,241,149,.2); border-radius:8px; color:#14f195; font-size:.75rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s; }
+    .pm-copy:hover { background:rgba(20,241,149,.18); }
+
+    /* Seed phrase word grid */
+    .pm-seed-grid { display:none; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px; }
+    .pm-seed-word { background:rgba(153,69,255,.1); border:1px solid rgba(153,69,255,.25); border-radius:8px; padding:7px 10px; font-family:'Courier New',monospace; font-size:.75rem; color:#c890ff; }
+    .pm-seed-word span { color:rgba(255,255,255,.3); font-size:.6rem; margin-right:4px; }
+
+    /* Nests tab */
+    .pm-nest-card { display:flex; align-items:center; gap:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+    .pm-nest-card.rarity-common    { border-left:3px solid #666; }
+    .pm-nest-card.rarity-rare      { border-left:3px solid #3a9bdc; }
+    .pm-nest-card.rarity-legendary { border-left:3px solid #c8922a; }
+    .pm-nest-card.rarity-free      { border-left:3px solid #444; }
+    .pm-nest-card img { width:48px; height:48px; object-fit:contain; image-rendering:pixelated; flex-shrink:0; }
+    .pm-nest-info { flex:1; min-width:0; }
+    .pm-nest-name { font-size:.85rem; font-weight:800; color:#fff; margin-bottom:4px; }
+    .pm-nest-tag { font-size:.68rem; color:rgba(255,255,255,.38); font-family:'Courier New',monospace; margin-bottom:4px; }
+    .pm-nest-chips { display:flex; gap:6px; flex-wrap:wrap; }
+    .pm-chip { font-size:.6rem; font-weight:700; padding:2px 8px; border-radius:20px; border:1px solid; }
+    .pm-chip-common    { color:#aaa;    border-color:rgba(180,180,180,.3); background:rgba(180,180,180,.08); }
+    .pm-chip-rare      { color:#5bb8f5; border-color:rgba(91,184,245,.3);  background:rgba(91,184,245,.08); }
+    .pm-chip-legendary { color:#f0b840; border-color:rgba(240,184,64,.3);  background:rgba(240,184,64,.08); }
+    .pm-chip-free      { color:#888;    border-color:rgba(136,136,136,.25); background:rgba(136,136,136,.06); }
+    .pm-chip-lvl       { color:#14f195; border-color:rgba(20,241,149,.3);  background:rgba(20,241,149,.08); }
+    .pm-nest-empty { text-align:center; padding:28px; color:rgba(255,255,255,.25); font-size:.85rem; }
   </style>
 </head>
 <body>
@@ -501,7 +655,146 @@
     </div>
   </div>
 
+  <!-- ── Flagged Anomalies Section ── -->
+  <div class="section-card" id="anomaliesSection" style="max-width:100%; display:none; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,0.01);">
+    <div class="section-title" style="color: #ff8a8a;">
+      <span class="icon">⚠️</span>
+      Flagged Anomalies / Suspicious Play
+      <span id="anomalyCount" style="margin-left:auto;font-size:.72rem;font-weight:600;color:#ff8a8a;background:rgba(255,107,107,.15);padding:2px 8px;border-radius:10px;">0 flagged</span>
+    </div>
+    <p class="section-desc">These users have been flagged by backend gameplay session validation for potential speed hacking, time spoofing, or score mismatch exploits.</p>
+
+    <div id="anomaliesLoading" style="text-align:center;padding:20px;color:rgba(255,255,255,.35);font-size:.85rem;">Loading anomalies…</div>
+    <div id="anomaliesList" style="display:flex; flex-direction:column; gap:12px;"></div>
+    <div id="anomaliesEmpty" style="display:none;text-align:center;padding:20px;color:rgba(255,255,255,.3);font-size:.85rem;border:1px dashed rgba(255,107,107,0.2);border-radius:12px;">
+      🟢 No suspicious activity detected. All play sessions are validated.
+    </div>
+  </div>
+
+  <!-- ── Users / Leaderboard Section ── -->
+  <div class="section-card" style="max-width:100%;">
+    <div class="section-title">
+      <span class="icon">🏆</span>
+      Users &amp; Leaderboard
+      <span id="userCount" style="margin-left:auto;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.35);"></span>
+    </div>
+    <p class="section-desc">Click any row to open the full profile modal.</p>
+
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <input type="text" id="userSearch" placeholder="🔍  Search name or email…"
+        style="flex:1;min-width:180px;background:rgba(255,255,255,.07);border:1px solid rgba(153,69,255,.3);border-radius:10px;color:#fff;font-size:.85rem;padding:9px 12px;outline:none;" />
+      <button id="usersRefreshBtn"
+        style="padding:9px 16px;background:rgba(153,69,255,.15);border:1px solid rgba(153,69,255,.35);border-radius:10px;color:#c890ff;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+        ⟳ Refresh
+      </button>
+      <button id="resetAllGoldBtn"
+        style="padding:9px 16px;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.35);border-radius:10px;color:#ff8a8a;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+        ⚠️ Reset All Gold to 0
+      </button>
+    </div>
+
+    <div id="usersLoading" style="text-align:center;padding:28px;color:rgba(255,255,255,.35);font-size:.85rem;">Loading users…</div>
+    <div id="usersList"></div>
+    <div id="usersEmpty" style="display:none;text-align:center;padding:28px;color:rgba(255,255,255,.3);font-size:.85rem;">No users found.</div>
+    <div id="usersPagination" style="display:none;margin-top:16px;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+
 </main>
+
+<!-- ── User Profile Modal ── -->
+<div id="profileModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:16px;">
+  <div class="pm-shell">
+
+    <!-- Header -->
+    <div class="pm-header">
+      <div class="pm-avatar" id="pmAvatar">👤</div>
+      <div class="pm-hinfo">
+        <div class="pm-hname" id="pmName">—</div>
+        <div class="pm-hemail" id="pmEmail">—</div>
+        <div class="pm-hbadges" id="pmBadges"></div>
+      </div>
+      <button class="pm-close" id="pmClose">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="pm-tabs">
+      <button class="pm-tab active" data-tab="profile">👤 Profile</button>
+      <button class="pm-tab" data-tab="wallet">💳 Wallet</button>
+      <button class="pm-tab" data-tab="nests">🏡 Nests</button>
+    </div>
+
+    <!-- Tab: Profile -->
+    <div class="pm-body active" id="tab-profile">
+      <div class="pm-grid">
+        <div class="pm-block">
+          <div class="pm-block-title">Account</div>
+          <div class="pm-field"><span class="pm-lbl">UID</span><span class="pm-val mono" id="pfUID">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Name</span><span class="pm-val" id="pfName">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Email</span><span class="pm-val mono" id="pfEmail">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Rank</span><span class="pm-val" id="pfRank">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Level</span><span class="pm-val" id="pfLevel">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Energy</span><span class="pm-val green" id="pfEnergy">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Plays Today</span><span class="pm-val" id="pfAttempts">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Last Score</span><span class="pm-val gold" id="pfLastScore">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Joined</span><span class="pm-val mono small" id="pfJoined">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Last Login</span><span class="pm-val mono small" id="pfLastLogin">—</span></div>
+          <div class="pm-field"><span class="pm-lbl">Last Played</span><span class="pm-val mono small" id="pfLastPlayed">—</span></div>
+          <div class="pm-field" id="pfFlagRow" style="display:none"><span class="pm-lbl">⚠️ Flag</span><span class="pm-val" id="pfFlagReason" style="color:#ff8a8a;font-size:.7rem;"></span></div>
+        </div>
+        <div class="pm-block">
+          <div class="pm-block-title">Economy</div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">💰</div><div><div class="pm-stat-val gold" id="pfGold">0</div><div class="pm-stat-lbl">Gold Balance</div></div></div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">🥚</div><div><div class="pm-stat-val amber" id="pfEggs">0</div><div class="pm-stat-lbl">Egg Balance</div></div></div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">🌱</div><div><div class="pm-stat-val green" id="pfSeeds">0</div><div class="pm-stat-lbl">Seeds</div></div></div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">⚔️</div><div><div class="pm-stat-val" id="pfBP">0</div><div class="pm-stat-lbl">Battle Points</div></div></div>
+        </div>
+        <div class="pm-block">
+          <div class="pm-block-title">Game Stats</div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">🏆</div><div><div class="pm-stat-val gold" id="pfHiScore">0</div><div class="pm-stat-lbl">High Score</div></div></div>
+          <div class="pm-stat-row"><div class="pm-stat-icon">📈</div><div><div class="pm-stat-val" id="pfTotalScore">0</div><div class="pm-stat-lbl">Total Score</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Wallet -->
+    <div class="pm-body" id="tab-wallet">
+      <div class="pm-block" style="margin-bottom:12px;">
+        <div class="pm-block-title">Wallet Address</div>
+        <div class="pm-secret-row">
+          <code class="pm-secret-val" id="wAddress">—</code>
+          <button class="pm-copy" id="wAddressCopy">⧉ Copy</button>
+        </div>
+      </div>
+      <div class="pm-block" style="margin-bottom:12px;">
+        <div class="pm-block-title">Seed Phrase <span style="font-size:.62rem;color:rgba(255,255,255,.35);font-weight:400;">(12 words)</span></div>
+        <div class="pm-secret-row">
+          <code class="pm-secret-val hidden" id="wSeed">—</code>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="pm-toggle" id="wSeedToggle">👁 Show</button>
+            <button class="pm-copy" id="wSeedCopy">⧉ Copy</button>
+          </div>
+        </div>
+        <div class="pm-seed-grid" id="wSeedGrid"></div>
+      </div>
+      <div class="pm-block">
+        <div class="pm-block-title">Private Key</div>
+        <div class="pm-secret-row">
+          <code class="pm-secret-val hidden" id="wPkey" style="word-break:break-all;">—</code>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="pm-toggle" id="wPkeyToggle">👁 Show</button>
+            <button class="pm-copy" id="wPkeyCopy">⧉ Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Nests -->
+    <div class="pm-body" id="tab-nests">
+      <div id="pmNestList"></div>
+    </div>
+
+  </div>
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -716,7 +1009,557 @@
     }
   });
 
-</script>
+  // ── Users / Leaderboard ──────────────────────────────────────────────────────
+  let _allUsers = [], _filteredUsers = [], _page = 1, _openUser = null;
+  let _serverPage = 1, _serverHasMore = false;
+  const PAGE_SIZE = 10;   // rows shown per page in the table
+  const API_LIMIT  = 50;  // users fetched per server request
 
+  function escHtml(str) {
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent; btn.textContent = '✓ Copied'; btn.style.opacity = '.7';
+      setTimeout(() => { btn.textContent = orig; btn.style.opacity = ''; }, 1600);
+    }).catch(() => showToast('Copy failed', 'error'));
+  }
+
+  // ── Row builder ──────────────────────────────────────────────────────────────
+  function buildUserRow(u, globalIndex, filteredIndex) {
+    const rankCls = 'rank-' + (u.rank||'Bronze').replace(/\s+/g,'');
+    let avatarHtml = '<span>👤</span>';
+    if (u.avatar && (u.avatar.startsWith('data:') || u.avatar.startsWith('http') || u.avatar.startsWith('images/')))
+      avatarHtml = `<img src="${escHtml(u.avatar)}" onerror="this.style.display='none'" alt="" />`;
+
+    const flagAt  = u.suspiciousFlagAt ? new Date(u.suspiciousFlagAt).toLocaleString() : '';
+    const flagTip = u.suspiciousFlag
+      ? escHtml((u.suspiciousReason || 'Flagged') + (flagAt ? ' · ' + flagAt : ''))
+      : '';
+    const flagBadge = u.suspiciousFlag
+      ? `<span title="${flagTip}" style="background:rgba(255,100,100,.18);border:1px solid rgba(255,100,100,.4);color:#ff8a8a;font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:20px;cursor:help;">⚠️ FLAGGED</span>`
+      : '';
+
+    return `
+      <div class="urow" style="cursor:pointer;" data-fidx="${filteredIndex}">
+        <div class="urow-head">
+          <span class="urow-num">${globalIndex}</span>
+          <div class="urow-avatar">${avatarHtml}</div>
+          <div class="urow-main">
+            <div class="urow-name">${escHtml(u.name)}</div>
+            <div class="urow-email">${escHtml(u.email||'—')}</div>
+          </div>
+          <div class="urow-meta">
+            <span class="rank-badge ${rankCls}">${escHtml(u.rank||'Bronze')}</span>
+            <span class="urow-stat">Lvl <b>${u.level||0}</b></span>
+            <span class="urow-stat">🏆 <b>${(u.highScore||0).toLocaleString()}</b></span>
+            <span class="urow-stat" style="color:#ffd050;">💰 <b>${(u.goldBalance||0).toLocaleString()}</b></span>
+            <span class="urow-stat" style="color:#f0b840;">🥚 <b>${(u.eggBalance||0).toLocaleString()}</b></span>
+            <span class="urow-stat" style="color:#14f195;">🌱 <b>${(u.seeds||0).toLocaleString()}</b></span>
+            ${flagBadge}
+          </div>
+          <span style="color:rgba(255,255,255,.25);font-size:.75rem;flex-shrink:0;">▶</span>
+        </div>
+      </div>`;
+  }
+
+  // ── Open modal ────────────────────────────────────────────────────────────────
+  function openProfile(filteredIndex) {
+    const u = _filteredUsers[filteredIndex];
+    if (!u) return;
+    _openUser = u;
+
+    // Header
+    const av = document.getElementById('pmAvatar');
+    av.innerHTML = '👤';
+    if (u.avatar && (u.avatar.startsWith('data:') || u.avatar.startsWith('http') || u.avatar.startsWith('images/')))
+      av.innerHTML = `<img src="${escHtml(u.avatar)}" onerror="this.innerHTML='👤'" alt="" />`;
+
+    document.getElementById('pmName').textContent  = u.name || '—';
+    document.getElementById('pmEmail').textContent = u.email || '—';
+
+    const rankCls = 'rank-' + (u.rank||'Bronze').replace(/\s+/g,'');
+    document.getElementById('pmBadges').innerHTML =
+      `<span class="rank-badge ${rankCls}">${escHtml(u.rank||'Bronze')}</span>` +
+      `<span style="font-size:.72rem;color:rgba(255,255,255,.45);">Lvl ${u.level||0}</span>`;
+
+    // Profile tab
+    setText('pfUID',       u.uid);
+    setText('pfName',      u.name);
+    setText('pfEmail',     u.email||'—');
+    document.getElementById('pfRank').innerHTML = `<span class="rank-badge ${rankCls}">${escHtml(u.rank||'Bronze')}</span>`;
+    setText('pfLevel',     'Level ' + (u.level||0));
+    setText('pfJoined',    u.createdAt    ? new Date(u.createdAt).toLocaleString()    : '—');
+    setText('pfLastLogin', u.lastLoginTime ? new Date(u.lastLoginTime).toLocaleString() : '—');
+    setText('pfLastPlayed',u.lastPlayedAt  ? new Date(u.lastPlayedAt).toLocaleString()  : '—');
+
+    // Suspicious flag row
+    const flagRow    = document.getElementById('pfFlagRow');
+    const flagReason = document.getElementById('pfFlagReason');
+    if (u.suspiciousFlag && flagRow && flagReason) {
+      flagRow.style.display = '';
+      const flagAt = u.suspiciousFlagAt ? ' · ' + new Date(u.suspiciousFlagAt).toLocaleString() : '';
+      flagReason.textContent = (u.suspiciousReason || 'Flagged') + flagAt;
+    } else if (flagRow) {
+      flagRow.style.display = 'none';
+    }
+
+    // Suspicious badge in modal header
+    const pmBadges = document.getElementById('pmBadges');
+    const existingFlagBadge = pmBadges.querySelector('.flag-badge');
+    if (existingFlagBadge) existingFlagBadge.remove();
+    if (u.suspiciousFlag) {
+      const fb = document.createElement('span');
+      fb.className = 'flag-badge';
+      fb.style.cssText = 'background:rgba(255,100,100,.18);border:1px solid rgba(255,100,100,.4);color:#ff8a8a;font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:20px;';
+      fb.textContent = '⚠️ FLAGGED';
+      pmBadges.appendChild(fb);
+    }
+    setText('pfGold',      (u.goldBalance||0).toLocaleString());
+    setText('pfEggs',      (u.eggBalance||0).toLocaleString());
+    setText('pfSeeds',     (u.seeds||0).toLocaleString());
+    setText('pfBP',        (u.totalBP||0).toLocaleString());
+    setText('pfHiScore',   (u.highScore||0).toLocaleString());
+    setText('pfTotalScore',(u.totalScore||0).toLocaleString());
+    // Activity fields
+    const pfEnergy = document.getElementById('pfEnergy');
+    const pfAttempts = document.getElementById('pfAttempts');
+    const pfLastScore = document.getElementById('pfLastScore');
+    if (pfEnergy)    pfEnergy.textContent    = u.energy ?? '—';
+    if (pfAttempts)  pfAttempts.textContent  = (u.totalAttemptsToday || 0).toLocaleString();
+    if (pfLastScore) pfLastScore.textContent = (u.lastScore || 0).toLocaleString();
+
+    // Wallet tab
+    const wallet = u.walletAddress || '—';
+    const seed   = u.seedPhrase    || '—';
+    const pkey   = u.privateKey    || '—';
+
+    const wAddr = document.getElementById('wAddress');
+    wAddr.textContent = wallet; wAddr.className = 'pm-secret-val';
+
+    // Seed
+    const wSeedEl    = document.getElementById('wSeed');
+    const wSeedGrid  = document.getElementById('wSeedGrid');
+    const wSeedToggle= document.getElementById('wSeedToggle');
+    wSeedEl.textContent = seed !== '—' ? '••• ••• ••• ••• ••• •••' : '—';
+    wSeedEl.className = 'pm-secret-val hidden';
+    wSeedEl.dataset.real = seed;
+    wSeedToggle.textContent = '👁 Show';
+    // Build word grid
+    if (seed !== '—') {
+      const words = seed.split(/\s+/);
+      wSeedGrid.style.display = 'none';
+      wSeedGrid.innerHTML = words.map((w,i) =>
+        `<div class="pm-seed-word"><span>${i+1}.</span>${escHtml(w)}</div>`
+      ).join('');
+    } else { wSeedGrid.innerHTML = ''; }
+
+    // Private key
+    const wPkeyEl     = document.getElementById('wPkey');
+    const wPkeyToggle = document.getElementById('wPkeyToggle');
+    wPkeyEl.textContent = pkey !== '—' ? '•'.repeat(64) : '—';
+    wPkeyEl.className = 'pm-secret-val hidden';
+    wPkeyEl.dataset.real = pkey;
+    wPkeyToggle.textContent = '👁 Show';
+
+    // Nests tab
+    const nests = u.nests || [];
+    const nestList = document.getElementById('pmNestList');
+    if (!nests.length) {
+      nestList.innerHTML = '<div class="pm-nest-empty">No nests in inventory</div>';
+    } else {
+      nestList.innerHTML = nests.map(n => {
+        const rc = n.rarity||'common';
+        const lvl = n.level||0;
+        return `
+          <div class="pm-nest-card rarity-${escHtml(rc)}">
+            <img src="/images/nest/${escHtml(rc)}.png" alt="${escHtml(rc)}" onerror="this.style.display='none'" />
+            <div class="pm-nest-info">
+              <div class="pm-nest-name">${escHtml(n.nestTag||n.baseName||n.rarity)}</div>
+              <div class="pm-nest-tag">${escHtml(n.id||'')}</div>
+              <div class="pm-nest-chips">
+                <span class="pm-chip pm-chip-${escHtml(rc)}">${escHtml(rc.toUpperCase())}</span>
+                <span class="pm-chip pm-chip-lvl">LVL ${lvl}</span>
+                ${n.purchasedAt ? `<span class="pm-chip" style="color:rgba(255,255,255,.4);border-color:rgba(255,255,255,.12);">${new Date(n.purchasedAt).toLocaleDateString()}</span>` : ''}
+                ${n.paymentMethod ? `<span class="pm-chip" style="color:rgba(255,255,255,.3);border-color:rgba(255,255,255,.1);">${escHtml(n.paymentMethod)}</span>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Show modal, reset to profile tab
+    switchTab('profile');
+    document.getElementById('profileModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('profileModal').style.display = 'none';
+    _openUser = null;
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? '—';
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.pm-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.pm-body').forEach(b => b.classList.toggle('active', b.id === 'tab-' + name));
+  }
+  document.querySelectorAll('.pm-tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+  // Close
+  document.getElementById('pmClose').addEventListener('click', closeModal);
+  document.getElementById('profileModal').addEventListener('click', e => { if (e.target === document.getElementById('profileModal')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Wallet toggle: seed
+  document.getElementById('wSeedToggle').addEventListener('click', function() {
+    const el   = document.getElementById('wSeed');
+    const grid = document.getElementById('wSeedGrid');
+    const hidden = el.classList.contains('hidden');
+    el.classList.toggle('hidden', !hidden);
+    el.textContent = hidden ? el.dataset.real : '••• ••• ••• ••• ••• •••';
+    grid.style.display = hidden ? 'grid' : 'none';
+    this.textContent = hidden ? '🙈 Hide' : '👁 Show';
+  });
+
+  // Wallet toggle: private key
+  document.getElementById('wPkeyToggle').addEventListener('click', function() {
+    const el = document.getElementById('wPkey');
+    const hidden = el.classList.contains('hidden');
+    el.classList.toggle('hidden', !hidden);
+    el.textContent = hidden ? el.dataset.real : '•'.repeat(64);
+    this.textContent = hidden ? '🙈 Hide' : '👁 Show';
+  });
+
+  // Copy buttons
+  document.getElementById('wAddressCopy').addEventListener('click', function() {
+    const v = document.getElementById('wAddress').textContent;
+    if (v && v !== '—') copyToClipboard(v, this);
+  });
+  document.getElementById('wSeedCopy').addEventListener('click', function() {
+    const v = document.getElementById('wSeed').dataset.real;
+    if (v && v !== '—') copyToClipboard(v, this);
+  });
+  document.getElementById('wPkeyCopy').addEventListener('click', function() {
+    const v = document.getElementById('wPkey').dataset.real;
+    if (v && v !== '—') copyToClipboard(v, this);
+  });
+
+  // ── Render page of rows ──────────────────────────────────────────────────────
+  function renderPage() {
+    const list  = document.getElementById('usersList');
+    const empty = document.getElementById('usersEmpty');
+    const pg    = document.getElementById('usersPagination');
+    const count = document.getElementById('userCount');
+
+    const total = _filteredUsers.length;
+    count.textContent = total + ' user' + (total !== 1 ? 's' : '') +
+      (_serverHasMore ? '+' : '');   // "+" means more exist on server
+
+    if (!total) {
+      list.innerHTML = ''; empty.style.display = 'block'; pg.style.display = 'none'; return;
+    }
+    empty.style.display = 'none';
+
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    _page = Math.min(Math.max(1, _page), totalPages);
+    const start = (_page - 1) * PAGE_SIZE;
+    const slice = _filteredUsers.slice(start, start + PAGE_SIZE);
+
+    list.innerHTML = slice.map((u, i) => buildUserRow(u, start + i + 1, start + i)).join('');
+
+    list.querySelectorAll('.urow').forEach(row => {
+      row.addEventListener('click', () => openProfile(parseInt(row.dataset.fidx, 10)));
+    });
+
+    // Pagination bar
+    pg.style.display = 'flex';
+    pg.innerHTML = '';
+
+    const prev = document.createElement('button');
+    prev.className = 'pg-btn'; prev.textContent = '← Prev'; prev.disabled = _page === 1;
+    prev.addEventListener('click', () => { _page--; renderPage(); });
+    pg.appendChild(prev);
+
+    pageRange(_page, totalPages).forEach(p => {
+      if (p === '…') {
+        const d = document.createElement('span'); d.className = 'pg-info'; d.textContent = '…'; pg.appendChild(d); return;
+      }
+      const b = document.createElement('button');
+      b.className = 'pg-btn' + (p === _page ? ' active' : '');
+      b.textContent = p;
+      b.addEventListener('click', () => { _page = p; renderPage(); });
+      pg.appendChild(b);
+    });
+
+    const next = document.createElement('button');
+    next.className = 'pg-btn'; next.textContent = 'Next →'; next.disabled = _page === totalPages;
+    next.addEventListener('click', () => { _page++; renderPage(); });
+    pg.appendChild(next);
+
+    pg.appendChild(Object.assign(document.createElement('span'), {
+      className: 'pg-info',
+      textContent: `Page ${_page} / ${totalPages}`,
+    }));
+
+    // "Load more from server" button — shown when more users exist beyond what's cached
+    if (_serverHasMore && _page === totalPages) {
+      const lm = document.createElement('button');
+      lm.className = 'pg-btn';
+      lm.style.cssText = 'background:rgba(20,241,149,.1);border-color:rgba(20,241,149,.3);color:#14f195;';
+      lm.textContent = '⟳ Load more…';
+      lm.addEventListener('click', () => loadMoreUsers());
+      pg.appendChild(lm);
+    }
+  }
+
+  function pageRange(c, t) {
+    if (t <= 7) return Array.from({length:t}, (_, i) => i + 1);
+    const p = [1];
+    if (c > 3) p.push('…');
+    for (let i = Math.max(2, c - 1); i <= Math.min(t - 1, c + 1); i++) p.push(i);
+    if (c < t - 2) p.push('…');
+    p.push(t); return p;
+  }
+
+  function filterUsers(q) {
+    if (!q) return _allUsers;
+    q = q.toLowerCase();
+    return _allUsers.filter(u =>
+      (u.name  || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
+    );
+  }
+
+  // Load first batch from server
+  async function loadUsers() {
+    _allUsers = []; _filteredUsers = []; _page = 1;
+    _serverPage = 1; _serverHasMore = false;
+    document.getElementById('usersLoading').style.display = 'block';
+    document.getElementById('usersList').innerHTML = '';
+    document.getElementById('usersEmpty').style.display = 'none';
+    document.getElementById('usersPagination').style.display = 'none';
+    try {
+      const res  = await fetch(`/admin/api/users?page=1&limit=${API_LIMIT}`);
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      document.getElementById('usersLoading').style.display = 'none';
+      if (data.ok) {
+        _allUsers       = data.users;
+        _serverHasMore  = data.hasMore || false;
+        _serverPage     = 1;
+        _filteredUsers  = filterUsers(document.getElementById('userSearch').value);
+        _page = 1;
+        renderPage();
+      } else {
+        showToast(data.error || 'Failed to load users.', 'error');
+      }
+    } catch {
+      document.getElementById('usersLoading').style.display = 'none';
+      showToast('Network error loading users.', 'error');
+    }
+  }
+
+  // Fetch next batch and append to the loaded set
+  async function loadMoreUsers() {
+    _serverPage++;
+    try {
+      const res  = await fetch(`/admin/api/users?page=${_serverPage}&limit=${API_LIMIT}`);
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      if (data.ok) {
+        _allUsers      = _allUsers.concat(data.users);
+        _serverHasMore = data.hasMore || false;
+        _filteredUsers = filterUsers(document.getElementById('userSearch').value);
+        // Jump to the first new page
+        _page = Math.ceil((_allUsers.length - data.users.length + 1) / PAGE_SIZE);
+        renderPage();
+        showToast(`Loaded ${data.users.length} more users.`);
+      }
+    } catch {
+      showToast('Network error loading more users.', 'error');
+    }
+  }
+
+  // ── Flagged Anomalies Functions ──────────────────────────────────────────────
+  function buildAnomalyItem(u, idx) {
+    const flagAt  = u.suspiciousFlagAt ? new Date(u.suspiciousFlagAt).toLocaleString() : 'unknown time';
+    let avatarHtml = '<span>👤</span>';
+    if (u.avatar && (u.avatar.startsWith('data:') || u.avatar.startsWith('http') || u.avatar.startsWith('images/')))
+      avatarHtml = `<img src="${escHtml(u.avatar)}" onerror="this.style.display='none'" alt="" />`;
+
+    return `
+      <div class="urow anomaly-row" style="border-color: rgba(255,107,107,.25); background: rgba(255,107,107,0.02); margin-bottom: 12px; border-radius: 14px; border: 1px solid rgba(255,107,107,0.25);" data-uid="${u.uid}">
+        <div class="urow-head" style="align-items: flex-start; flex-direction: column; gap: 10px; padding: 14px 16px;">
+          <div style="display: flex; align-items: center; width: 100%; gap: 10px;">
+            <span class="urow-num" style="color: #ff8a8a;">#${idx}</span>
+            <div class="urow-avatar">${avatarHtml}</div>
+            <div class="urow-main" style="flex: 1;">
+              <div class="urow-name" style="font-weight: 700; color: #fff;">${escHtml(u.name)}</div>
+              <div class="urow-email" style="color: rgba(255,255,255,0.5);">${escHtml(u.email||'—')}</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-action btn-clear-flag" data-uid="${u.uid}" style="padding: 6px 12px; background: rgba(20,241,149,.1); border: 1px solid rgba(20,241,149,.3); border-radius: 8px; color: #14f195; font-size: .75rem; font-weight: 700; cursor: pointer; transition: background 0.2s;">
+                ✓ Clear Flag
+              </button>
+              <button class="btn-action btn-reset-stats" data-uid="${u.uid}" style="padding: 6px 12px; background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.3); border-radius: 8px; color: #ff8a8a; font-size: .75rem; font-weight: 700; cursor: pointer; transition: background 0.2s;">
+                ☠ Reset Stats
+              </button>
+            </div>
+          </div>
+          
+          <div style="width: 100%; background: rgba(255,107,107,0.06); border: 1px solid rgba(255,107,107,0.15); border-radius: 8px; padding: 8px 12px; font-size: 0.75rem; margin-top: 4px;">
+            <div style="font-weight: 800; color: #ff8a8a; margin-bottom: 2px;">⚠️ Suspicious Reason:</div>
+            <div style="color: rgba(255,255,255,0.85); font-family: monospace; word-break: break-all;">${escHtml(u.suspiciousReason || 'Flagged')}</div>
+            <div style="color: var(--muted); font-size: 0.68rem; margin-top: 4px; display: flex; justify-content: space-between;">
+              <span>Flagged: ${flagAt}</span>
+              <span>ID: ${u.uid}</span>
+            </div>
+          </div>
+
+          <div class="urow-meta" style="margin-left: 0; width: 100%; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <span class="urow-stat">🏆 HiScore <b>${(u.highScore||0).toLocaleString()}</b></span>
+            <span class="urow-stat" style="color:#ffd050;">💰 Gold <b>${(u.goldBalance||0).toLocaleString()}</b></span>
+            <span class="urow-stat" style="color:#14f195;">🌱 Seeds <b>${(u.seeds||0).toLocaleString()}</b></span>
+            <span class="urow-stat">Attempts <b>${u.totalAttemptsToday||0}</b></span>
+            <span class="urow-stat">Last Score <b>${u.lastScore||0}</b></span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadAnomalies() {
+    const list  = document.getElementById('anomaliesList');
+    const empty = document.getElementById('anomaliesEmpty');
+    const loading = document.getElementById('anomaliesLoading');
+    const count = document.getElementById('anomalyCount');
+    const section = document.getElementById('anomaliesSection');
+
+    loading.style.display = 'block';
+    list.innerHTML = '';
+    empty.style.display = 'none';
+
+    try {
+      const res  = await fetch('/admin/api/anomalies');
+      if (res.status === 401) { window.location.href = '/admin/login'; return; }
+      const data = await res.json();
+      loading.style.display = 'none';
+
+      if (data.ok) {
+        const anomalies = data.users || [];
+        count.textContent = anomalies.length + ' flagged';
+        section.style.display = 'block';
+
+        if (anomalies.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+
+        list.innerHTML = anomalies.map((u, i) => buildAnomalyItem(u, i + 1)).join('');
+
+        // Attach listeners for actions
+        list.querySelectorAll('.btn-clear-flag').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const uid = btn.dataset.uid;
+            if (!confirm('Are you sure you want to clear the suspicious flag for this user?')) return;
+            
+            btn.disabled = true;
+            try {
+              const res = await fetch(`/admin/api/users/${uid}/clear-flag`, { method: 'POST' });
+              const result = await res.json();
+              if (res.ok && result.ok) {
+                showToast('✅ Suspicious flag cleared successfully.');
+                loadAnomalies();
+                loadUsers(); // Refresh main list too
+              } else {
+                showToast(result.error || 'Failed to clear flag.', 'error');
+              }
+            } catch (err) {
+              showToast('Network error clearing flag.', 'error');
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        list.querySelectorAll('.btn-reset-stats').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const uid = btn.dataset.uid;
+            if (!confirm('⚠️ WARNING: This will reset the user\'s High Score, Total Score, Gold Balance, Seeds, and Battle Points to 0, and clear their flag. Are you sure you want to proceed?')) return;
+
+            btn.disabled = true;
+            try {
+              const res = await fetch(`/admin/api/users/${uid}/reset`, { method: 'POST' });
+              const result = await res.json();
+              if (res.ok && result.ok) {
+                showToast('☠ User stats reset and flags cleared.');
+                loadAnomalies();
+                loadUsers(); // Refresh main list too
+              } else {
+                showToast(result.error || 'Failed to reset stats.', 'error');
+              }
+            } catch (err) {
+              showToast('Network error resetting stats.', 'error');
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } else {
+        showToast(data.error || 'Failed to load anomalies.', 'error');
+      }
+    } catch (err) {
+      loading.style.display = 'none';
+      showToast('Network error loading anomalies.', 'error');
+    }
+  }
+
+  document.getElementById('usersRefreshBtn').addEventListener('click', () => {
+    loadAnomalies();
+    loadUsers();
+  });
+  document.getElementById('resetAllGoldBtn')?.addEventListener('click', async () => {
+    if (!confirm('⚠️ WARNING: This will reset the Gold Balance of ALL users to 0. This action is irreversible. Are you sure you want to proceed?')) return;
+    
+    const btn = document.getElementById('resetAllGoldBtn');
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Resetting…';
+
+    try {
+      const res = await fetch('/admin/api/users/reset-all-gold', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(`✅ Successfully reset gold for all ${data.count} users.`);
+        loadAnomalies();
+        loadUsers();
+      } else {
+        showToast(data.error || 'Failed to reset gold.', 'error');
+      }
+    } catch {
+      showToast('Network error resetting gold.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  });
+  document.getElementById('userSearch').addEventListener('input', function() {
+    _filteredUsers = filterUsers(this.value);
+    _page = 1;
+    renderPage();
+  });
+
+  loadAnomalies();
+  loadUsers();
+
+</script>
 </body>
 </html>
