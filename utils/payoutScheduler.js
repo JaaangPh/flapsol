@@ -283,6 +283,5 @@ module.exports = {
   updatePayoutConfig,
   runCutoff,
   runPayout,
-  checkSchedule,
   getGmt8DateString
 };
