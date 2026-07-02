@@ -429,9 +429,13 @@ router.get('/api/swap-config', requireAdmin, async (_req, res) => {
     const doc = await db.collection('config').doc('swap').get();
     if (doc.exists) {
       const data = doc.data();
-      return res.json({ ok: true, enabled: data.enabled ?? true });
+      return res.json({
+        ok:             true,
+        enabled:        data.enabled        ?? true,
+        eggToGoldRate:  data.eggToGoldRate  ?? 100,
+      });
     }
-    return res.json({ ok: true, enabled: true });
+    return res.json({ ok: true, enabled: true, eggToGoldRate: 100 });
   } catch (err) {
     console.error('[admin/api/swap-config GET]', err);
     res.status(500).json({ error: 'Server error.' });
@@ -441,19 +445,23 @@ router.get('/api/swap-config', requireAdmin, async (_req, res) => {
 // ── POST /admin/api/swap-config ───────────────────────────────────────────────
 router.post('/api/swap-config', requireAdmin, async (req, res) => {
   try {
-    const { enabled } = req.body;
+    const { enabled, eggToGoldRate } = req.body;
     if (typeof enabled !== 'boolean') {
       return res.status(400).json({ error: 'enabled must be a boolean.' });
+    }
+    const rate = Number(eggToGoldRate);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return res.status(400).json({ error: 'eggToGoldRate must be a positive number.' });
     }
 
     const db = getFirestore();
     await db.collection('config').doc('swap').set(
-      { enabled, updatedAt: new Date().toISOString() },
+      { enabled, eggToGoldRate: rate, updatedAt: new Date().toISOString() },
       { merge: true }
     );
 
-    console.log(`[admin/api/swap-config] swapEnabled=${enabled}`);
-    return res.json({ ok: true, enabled });
+    console.log(`[admin/api/swap-config] swapEnabled=${enabled} eggToGoldRate=${rate}`);
+    return res.json({ ok: true, enabled, eggToGoldRate: rate });
   } catch (err) {
     console.error('[admin/api/swap-config POST]', err);
     res.status(500).json({ error: 'Server error.' });

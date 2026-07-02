@@ -440,8 +440,8 @@
         updateHud();
         renderActiveSlots();
 
-        // Poll every 60 s in background
-        pollInt = setInterval(pollState, 60*1000);
+        // Poll every 5 minutes in background (reduces Firestore reads)
+        pollInt = setInterval(pollState, 5 * 60 * 1000);
 
         document.getElementById('farmScreen').style.opacity='1';
       } catch { window.location.href='/'; }

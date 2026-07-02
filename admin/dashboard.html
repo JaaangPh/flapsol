@@ -662,11 +662,11 @@
       Swap System Settings
     </div>
     <p class="section-desc">
-      Enable or disable the $GOLD to SOL swap feature on the public dashboard.
+      Enable or disable the Egg → Gold swap feature. Set the rate (gold per egg) and 2% slippage is automatically deducted from gold received.
     </p>
 
     <!-- Toggle row -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:14px;">
       <div>
         <div style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:3px;">Swap Feature Status</div>
         <div style="font-size:.75rem;color:var(--muted);" id="swapStatusText">Loading…</div>
@@ -677,6 +677,20 @@
           <span class="toggle-thumb"></span>
         </span>
       </label>
+    </div>
+
+    <!-- Rate input -->
+    <div style="padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:18px;">
+      <div style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:8px;">
+        <img src="../public/images/egg.png" alt="egg" style="width:16px;height:16px;vertical-align:middle;margin-right:5px;image-rendering:pixelated;"> Egg → Gold Rate
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px;">Gold received per egg (before 2% fee). e.g. 100 = 1 egg → 98 gold after fee.</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="number" id="swapRateInput" min="1" step="1" value="100"
+          style="width:120px;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;font-weight:700;text-align:center;" />
+        <span style="font-size:.8rem;color:var(--muted);">gold per egg</span>
+        <span style="font-size:.78rem;color:#14f195;margin-left:4px;" id="swapRatePreview"></span>
+      </div>
     </div>
 
     <!-- Save button -->
@@ -1107,14 +1121,21 @@
     const el = document.getElementById('swapStatusText');
     if (!el) return;
     el.textContent = enabled
-      ? '🟢 Swap is ENABLED — players can swap Gold to SOL'
+      ? '🟢 Swap is ENABLED — players can swap Eggs to Gold'
       : '🔴 Swap is DISABLED — swap feature is locked';
     el.style.color = enabled ? '#14f195' : '#ff8a8a';
+  }
+
+  function updateSwapRatePreview() {
+    const rate = parseInt(document.getElementById('swapRateInput').value, 10) || 0;
+    const net  = Math.round(rate * 0.98);
+    document.getElementById('swapRatePreview').textContent = rate > 0 ? `→ ${net} gold after 2% fee` : '';
   }
 
   document.getElementById('swapToggle').addEventListener('change', function () {
     updateSwapStatusText(this.checked);
   });
+  document.getElementById('swapRateInput').addEventListener('input', updateSwapRatePreview);
 
   async function loadSwapConfig() {
     try {
@@ -1123,7 +1144,9 @@
       const data = await res.json();
       if (data.ok) {
         document.getElementById('swapToggle').checked = data.enabled;
+        document.getElementById('swapRateInput').value = data.eggToGoldRate ?? 100;
         updateSwapStatusText(data.enabled);
+        updateSwapRatePreview();
       }
     } catch {
       showToast('Failed to load swap settings.', 'error');
@@ -1132,8 +1155,14 @@
   loadSwapConfig();
 
   document.getElementById('swapSaveBtn').addEventListener('click', async () => {
-    const btn     = document.getElementById('swapSaveBtn');
-    const enabled = document.getElementById('swapToggle').checked;
+    const btn           = document.getElementById('swapSaveBtn');
+    const enabled       = document.getElementById('swapToggle').checked;
+    const eggToGoldRate = parseInt(document.getElementById('swapRateInput').value, 10);
+
+    if (!eggToGoldRate || eggToGoldRate < 1) {
+      showToast('Rate must be at least 1 gold per egg.', 'error');
+      return;
+    }
 
     btn.disabled = true;
     btn.classList.add('loading');
@@ -1141,13 +1170,14 @@
       const res  = await fetch('/admin/api/swap-config', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ enabled }),
+        body:    JSON.stringify({ enabled, eggToGoldRate }),
       });
       if (res.status === 401) { window.location.href = '/admin/login'; return; }
       const data = await res.json();
       if (res.ok && data.ok) {
         showToast(enabled ? '💱 Swap feature ENABLED' : '🚫 Swap feature DISABLED');
         updateSwapStatusText(data.enabled);
+        updateSwapRatePreview();
       } else {
         showToast(data.error || 'Failed to save swap settings.', 'error');
       }

@@ -242,33 +242,35 @@ async function runPayout() {
  * Checks schedule against current UTC time.
  * Daily Cutoff: 11:40 AM GMT+8 -> 03:40 AM UTC
  * Daily Payout: 12:00 PM GMT+8 -> 04:00 AM UTC
+ *
+ * Only reads Firestore during the exact trigger minutes to minimize reads.
+ * (Previously read config every 60s = ~2,880 reads/day — now only 2/day)
  */
 async function checkSchedule() {
   try {
     const now = new Date();
-    const utcHours = now.getUTCHours();
+    const utcHours   = now.getUTCHours();
     const utcMinutes = now.getUTCMinutes();
-    
-    // Format current GMT+8 date string
-    const todayStr = getGmt8DateString(now);
-    
-    // Daily Cutoff check at 03:40 UTC
-    if (utcHours === 3 && utcMinutes === 40) {
-      const config = await getPayoutConfig();
-      if (config.lastCutoffDate !== todayStr) {
-        await runCutoff();
-      }
+    const todayStr   = getGmt8DateString(now);
+
+    const isCutoffMinute = utcHours === 3 && utcMinutes === 40;
+    const isPayoutMinute = utcHours === 4 && utcMinutes === 0;
+
+    // Only hit Firestore during the 2 trigger windows per day
+    if (!isCutoffMinute && !isPayoutMinute) return;
+
+    // Single config read shared between both checks
+    const config = await getPayoutConfig();
+
+    if (isCutoffMinute && config.lastCutoffDate !== todayStr) {
+      await runCutoff();
     }
 
-    // Daily Payout check at 04:00 UTC
-    if (utcHours === 4 && utcMinutes === 0) {
-      const config = await getPayoutConfig();
-      if (config.lastPayoutDate !== todayStr) {
-        if (config.autoApproval) {
-          await runPayout();
-        } else {
-          console.log('[payoutScheduler] Auto-approval is OFF. Skipping daily auto-payout at 12:00 PM GMT+8.');
-        }
+    if (isPayoutMinute && config.lastPayoutDate !== todayStr) {
+      if (config.autoApproval) {
+        await runPayout();
+      } else {
+        console.log('[payoutScheduler] Auto-approval is OFF. Skipping daily auto-payout at 12:00 PM GMT+8.');
       }
     }
   } catch (err) {

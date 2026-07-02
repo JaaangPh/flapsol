@@ -2,7 +2,7 @@ const express    = require('express');
 const passport   = require('passport');
 const router     = express.Router();
 const { decrypt }      = require('../utils/wallet');
-const { getFirestore } = require('../config/firebase');
+const { getFirestore, runWithFirestoreRetry } = require('../config/firebase');
 const crypto           = require('crypto');
 
 // ── Google ────────────────────────────────────────────────────────────────────
@@ -57,14 +57,14 @@ router.get('/sso', async (req, res) => {
   try {
     const db  = getFirestore();
     const ref = db.collection('sso-tokens').doc(token);
-    const snap = await ref.get();
+    const snap = await runWithFirestoreRetry(() => ref.get(), null);
 
-    if (!snap.exists) return res.redirect('/login?error=sso_invalid');
+    if (!snap || !snap.exists) return res.redirect('/login?error=sso_invalid');
 
     const { uid, email, expiresAt } = snap.data();
 
     // One-time use — delete immediately regardless of outcome
-    await ref.delete();
+    await runWithFirestoreRetry(() => ref.delete(), null);
 
     if (Date.now() > expiresAt) return res.redirect('/login?error=sso_expired');
 
@@ -73,32 +73,32 @@ router.get('/sso', async (req, res) => {
 
     // 1. Try direct doc ID (works if both apps share same Firestore doc IDs)
     if (uid) {
-      const direct = await usersRef.doc(uid).get();
-      if (direct.exists) userDoc = direct;
+      const direct = await runWithFirestoreRetry(() => usersRef.doc(uid).get(), null);
+      if (direct && direct.exists) userDoc = direct;
     }
 
     // 2. Try matching by googleId / discordId / githubId field
     if (!userDoc && uid) {
       for (const field of ['googleId', 'discordId', 'githubId', 'providerId']) {
-        const q = await usersRef.where(field, '==', uid).limit(1).get();
-        if (!q.empty) { userDoc = q.docs[0]; break; }
+        const q = await runWithFirestoreRetry(() => usersRef.where(field, '==', uid).limit(1).get(), null);
+        if (q && !q.empty) { userDoc = q.docs[0]; break; }
       }
     }
 
     // 3. Try matching by oauthProviders.*.id across all providers
     if (!userDoc && uid) {
       for (const provider of ['google', 'github', 'discord']) {
-        const q = await usersRef
+        const q = await runWithFirestoreRetry(() => usersRef
           .where(`oauthProviders.${provider}.id`, '==', uid)
-          .limit(1).get();
-        if (!q.empty) { userDoc = q.docs[0]; break; }
+          .limit(1).get(), null);
+        if (q && !q.empty) { userDoc = q.docs[0]; break; }
       }
     }
 
     // 4. Fall back to email match
     if (!userDoc && email) {
-      const q = await usersRef.where('email', '==', email).limit(1).get();
-      if (!q.empty) userDoc = q.docs[0];
+      const q = await runWithFirestoreRetry(() => usersRef.where('email', '==', email).limit(1).get(), null);
+      if (q && !q.empty) userDoc = q.docs[0];
     }
 
     if (!userDoc) return res.redirect('/login?error=sso_no_user');
@@ -122,13 +122,13 @@ router.get('/sso', async (req, res) => {
     if (docData.walletBalance  === undefined) missing.walletBalance  = 0;
 
     if (Object.keys(missing).length > 0) {
-      await userDoc.ref.update(missing);
+      await runWithFirestoreRetry(() => userDoc.ref.update(missing), null);
       Object.assign(docData, missing);
     }
 
     // Issue a new session token — invalidates any existing session on other devices
     const newSessionId = crypto.randomBytes(32).toString('hex');
-    await userDoc.ref.update({ currentSessionId: newSessionId });
+    await runWithFirestoreRetry(() => userDoc.ref.update({ currentSessionId: newSessionId }), null);
 
     const user = { uid: userDoc.id, ...docData, currentSessionId: newSessionId };
 
@@ -172,12 +172,12 @@ router.post('/issue-token', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const TTL   = 60 * 1000; // 60 seconds — one browser redirect only
 
-    await db.collection('sso-tokens').doc(token).set({
+    await runWithFirestoreRetry(() => db.collection('sso-tokens').doc(token).set({
       uid:       uid   || null,
       email:     email || null,
       createdAt: Date.now(),
       expiresAt: Date.now() + TTL,
-    });
+    }), null);
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     res.json({ token, url: `${baseUrl}/auth/sso?token=${token}` });
@@ -218,44 +218,47 @@ router.get('/me', async (req, res) => {
   const gold = goldBalance !== undefined ? goldBalance : (clashBalance !== undefined ? clashBalance : 0);
 
   // ── Ensure free nest + energy fields exist for older accounts ─────────────
-  try {
-    const db  = getFirestore();
-    const ref = db.collection('users').doc(uid);
-    const doc = await ref.get();
-    if (doc.exists) {
-      const data = doc.data();
-      const backfill = {};
+  const shouldBackfill = req.user.inventory === undefined || req.user.energy === undefined || req.user.lastEnergyTime === undefined;
+  if (shouldBackfill) {
+    try {
+      const db  = getFirestore();
+      const ref = db.collection('users').doc(uid);
+      const doc = await runWithFirestoreRetry(() => ref.get(), null);
+      if (doc && doc.exists) {
+        const data = doc.data();
+        const backfill = {};
 
-      // Grant free nest if inventory has none and no free nest exists
-      const inv = data.inventory || [];
-      const hasFreeNest = inv.some(i => i.rarity === 'free');
-      if (!hasFreeNest) {
-        const freeNestTag = `Free Nest#${String(Math.floor(1000 + Math.random() * 9000))}`;
-        inv.push({
-          id:          `nest_free_${Date.now()}`,
-          type:        'nest',
-          rarity:      'free',
-          baseName:    'Free Nest',
-          nestTag:     freeNestTag,
-          priceSol:    0,
-          paymentMethod: 'free',
-          purchasedAt: new Date().toISOString(),
-          image:       'images/nest/free.png',
-        });
-        backfill.inventory = inv;
+        // Grant free nest if inventory has none and no free nest exists
+        const inv = Array.isArray(data.inventory) ? data.inventory : [];
+        const hasFreeNest = inv.some(i => i.rarity === 'free');
+        if (!hasFreeNest) {
+          const freeNestTag = `Free Nest#${String(Math.floor(1000 + Math.random() * 9000))}`;
+          inv.push({
+            id:          `nest_free_${Date.now()}`,
+            type:        'nest',
+            rarity:      'free',
+            baseName:    'Free Nest',
+            nestTag:     freeNestTag,
+            priceSol:    0,
+            paymentMethod: 'free',
+            purchasedAt: new Date().toISOString(),
+            image:       'images/nest/free.png',
+          });
+          backfill.inventory = inv;
+        }
+
+        // Seed energy fields if missing — start with full base slots (20)
+        if (data.energy === undefined) backfill.energy = 20;
+        if (data.lastEnergyTime === undefined) backfill.lastEnergyTime = new Date().toISOString();
+
+        if (Object.keys(backfill).length > 0) {
+          await runWithFirestoreRetry(() => ref.update(backfill), null);
+          Object.assign(req.user, backfill);
+        }
       }
-
-      // Seed energy fields if missing — start with full base slots (20)
-      if (data.energy === undefined) backfill.energy = 20;
-      if (data.lastEnergyTime === undefined) backfill.lastEnergyTime = new Date().toISOString();
-
-      if (Object.keys(backfill).length > 0) {
-        await ref.update(backfill);
-        Object.assign(req.user, backfill);
-      }
+    } catch (e) {
+      console.warn('[/auth/me backfill skipped]', e.message || e);
     }
-  } catch (e) {
-    console.error('[/auth/me backfill]', e);
   }
 
   res.json({

@@ -446,8 +446,8 @@ router.get('/marketplace/nest-prices', async (_req, res) => {
 });
 
 // ── GET /api/marketplace/sol-php ─────────────────────────────────────────────
-// Returns live SOL/PHP price from CoinGecko + computed $GOLD prices per nest.
-// 1 $GOLD = 1 PHP. Gold price = floor(nestSOLPrice * solPHP).
+// Returns live SOL/PHP price + real $GOLD token price from Jupiter.
+// Gold nest prices are computed as: ceil(nestSolPrice * solPhp / goldPricePhp)
 router.get('/marketplace/sol-php', async (_req, res) => {
   try {
     const https = require('https');
@@ -459,23 +459,72 @@ router.get('/marketplace/sol-php', async (_req, res) => {
       }).on('error', reject);
     });
 
-    const data = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=php');
-    const solPhp = data?.solana?.php;
+    // Fetch SOL/PHP and SOL/USD in parallel
+    const [phpData, usdData] = await Promise.all([
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=php'),
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'),
+    ]);
+
+    const solPhp = phpData?.solana?.php;
+    const solUsd = usdData?.solana?.usd;
 
     if (!solPhp || typeof solPhp !== 'number') {
       return res.status(502).json({ error: 'Could not fetch SOL price.' });
     }
 
-    // Get nest SOL prices (dynamic or defaults)
+    // Fetch $GOLD token price in USD from pump.fun API (works for bonding curve tokens)
+    const goldCA = process.env.GOLD_CA;
+    let goldPricePhp = null;
+    let goldPriceUsd = null;
+
+    if (goldCA && solUsd) {
+      // Try Jupiter first — most accurate, works for bonding curve + graduated tokens
+      try {
+        const jupData = await fetch(`https://api.jup.ag/price/v2?ids=${goldCA}`);
+        const priceUsd = Number(jupData?.data?.[goldCA]?.price);
+        if (priceUsd > 0) {
+          goldPriceUsd = priceUsd;
+          const phpPerUsd = solPhp / solUsd;
+          goldPricePhp = priceUsd * phpPerUsd;
+        }
+      } catch (e) {
+        console.error('[sol-php] Jupiter price fetch error:', e.message);
+      }
+
+      // Fallback: pump.fun using price_sol (avoid total_supply — unreliable field)
+      if (!goldPriceUsd) {
+        try {
+          const pumpData = await fetch(`https://frontend-api-v3.pump.fun/coins/${goldCA}`);
+          if (pumpData?.price_sol && typeof pumpData.price_sol === 'number') {
+            goldPriceUsd = pumpData.price_sol * solUsd;
+            const phpPerUsd = solPhp / solUsd;
+            goldPricePhp = goldPriceUsd * phpPerUsd;
+          }
+        } catch (e) {
+          console.error('[sol-php] pump.fun price fetch error:', e.message);
+        }
+      }
+    }
+
     const catalog = await getNestCatalog();
+
+    // Compute gold required per nest using real token price
+    // Fallback to 1 GOLD = 1 PHP if Jupiter price unavailable
+    function nestGoldPrice(solPrice) {
+      const php = solPrice * solPhp;
+      if (goldPricePhp && goldPricePhp > 0) return Math.ceil(php / goldPricePhp);
+      return Math.floor(php); // legacy fallback
+    }
 
     return res.json({
       ok: true,
       solPhp,
+      goldPriceUsd,
+      goldPricePhp,
       gold: {
-        common:    Math.floor(catalog.common.price    * solPhp),
-        rare:      Math.floor(catalog.rare.price      * solPhp),
-        legendary: Math.floor(catalog.legendary.price * solPhp),
+        common:    nestGoldPrice(catalog.common.price),
+        rare:      nestGoldPrice(catalog.rare.price),
+        legendary: nestGoldPrice(catalog.legendary.price),
       },
     });
   } catch (err) {
@@ -485,7 +534,9 @@ router.get('/marketplace/sol-php', async (_req, res) => {
 });
 
 // ── POST /api/marketplace/buy-nest-gold ──────────────────────────────────────
-// Purchase a nest using $GOLD balance. Gold price = floor(nestSOLPrice * solPHP).
+// Purchase a nest using real $GOLD SPL tokens.
+// Pricing: nestSOLPrice → convert to $GOLD using live $GOLD/SOL rate from Jupiter/CoinGecko.
+// Transfer: user's wallet → TREASURY_WALLET_ADDRESS (on-chain SPL transfer).
 router.post('/marketplace/buy-nest-gold', requireAuth, async (req, res) => {
   try {
     const { rarity } = req.body;
@@ -522,52 +573,156 @@ router.post('/marketplace/buy-nest-gold', requireAuth, async (req, res) => {
       return res.status(502).json({ error: 'Could not fetch live SOL price. Try again shortly.' });
     }
 
-    const catalog      = await getNestCatalog();
-    const nestInfo     = catalog[rarity];
-    const goldRequired = Math.floor(nestInfo.price * solPhp);
+    // ── Fetch live $GOLD token price via pump.fun API (bonding curve tokens) ─
+    const goldCA = process.env.GOLD_CA;
+    if (!goldCA) {
+      return res.status(500).json({ error: 'GOLD_CA not configured.' });
+    }
 
-    // ── Check gold balance ────────────────────────────────────────────────
-    const currentGold = userData.goldBalance || 0;
-    if (currentGold < goldRequired) {
+    let goldPricePhp = null;
+
+    // Fetch SOL/USD for price conversions
+    let solUsd = null;
+    try {
+      const cgUsd = await fetchJson('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+      solUsd = cgUsd?.solana?.usd;
+    } catch (e) {
+      console.error('[buy-nest-gold] CoinGecko USD error:', e.message);
+    }
+
+    // Try Jupiter first — most accurate USD price per token (works for bonding curve + graduated)
+    if (solUsd) {
+      try {
+        const jupData = await fetchJson(`https://api.jup.ag/price/v2?ids=${goldCA}`);
+        const goldUsd = Number(jupData?.data?.[goldCA]?.price);
+        if (goldUsd > 0) {
+          const phpPerUsd = solPhp / solUsd;
+          goldPricePhp = goldUsd * phpPerUsd;
+          console.log(`[buy-nest-gold] Jupiter gold price: $${goldUsd} USD / ${goldPricePhp.toFixed(8)} PHP`);
+        }
+      } catch (e) {
+        console.error('[buy-nest-gold] Jupiter price fetch error:', e.message);
+      }
+    }
+
+    // Fallback: pump.fun API using price_sol field (avoid total_supply — unreliable)
+    if (!goldPricePhp && solUsd) {
+      try {
+        const pumpData = await fetchJson(`https://frontend-api-v3.pump.fun/coins/${goldCA}`);
+        if (pumpData?.price_sol && typeof pumpData.price_sol === 'number') {
+          const goldPriceUsd = pumpData.price_sol * solUsd;
+          const phpPerUsd = solPhp / solUsd;
+          goldPricePhp = goldPriceUsd * phpPerUsd;
+          console.log(`[buy-nest-gold] pump.fun gold price: ${pumpData.price_sol} SOL / $${goldPriceUsd} USD`);
+        }
+      } catch (e) {
+        console.error('[buy-nest-gold] pump.fun price fetch error:', e.message);
+      }
+    }
+
+    const catalog   = await getNestCatalog();
+    const nestInfo  = catalog[rarity];
+    const nestPhp   = nestInfo.price * solPhp; // nest price in PHP
+
+    // Gold required = nestPhp / goldPricePhp (how many GOLD tokens to cover the nest price)
+    // Fallback: if Jupiter price unavailable, use 1 GOLD = 1 PHP legacy rate
+    let goldRequired;
+    if (goldPricePhp && goldPricePhp > 0) {
+      goldRequired = Math.ceil(nestPhp / goldPricePhp);
+    } else {
+      goldRequired = Math.floor(nestPhp); // fallback: 1 GOLD = 1 PHP
+    }
+
+    // ── Decrypt user private key for on-chain transfer ────────────────────
+    let buyerKeypair;
+    try {
+      if (userData.seedPhrase) {
+        const bip39 = require('bip39');
+        const { derivePath } = require('ed25519-hd-key');
+        const mnemonic = decrypt(userData.seedPhrase);
+        const seed = bip39.mnemonicToSeedSync(mnemonic);
+        const derived = derivePath("m/44'/501'/0'/0'", seed.toString('hex'));
+        buyerKeypair = Keypair.fromSeed(derived.key);
+      } else if (userData.walletPrivateKey) {
+        const privKeyB58 = decrypt(userData.walletPrivateKey);
+        buyerKeypair = Keypair.fromSecretKey(bs58.decode(privKeyB58));
+      } else {
+        return res.status(400).json({ error: 'No wallet key found for this account.' });
+      }
+    } catch (e) {
+      console.error('[buy-nest-gold] Key decrypt error:', e);
+      return res.status(500).json({ error: 'Failed to access wallet. Please contact support.' });
+    }
+
+    // ── Resolve treasury address ──────────────────────────────────────────
+    const treasuryAddress = process.env.TREASURY_WALLET_ADDRESS;
+    if (!treasuryAddress) {
+      return res.status(500).json({ error: 'Treasury wallet not configured.' });
+    }
+
+    // ── Check user on-chain $GOLD token balance ───────────────────────────
+    const { getSPLTokenBalance, transferSPLToken } = require('../utils/solanaToken');
+    const connection = getSolanaConnection();
+    const userWalletAddress = buyerKeypair.publicKey.toBase58();
+    const onChainBalance = await getSPLTokenBalance(connection, userWalletAddress, goldCA);
+
+    if (onChainBalance < goldRequired) {
       return res.status(400).json({
-        error: `Insufficient $GOLD. Need ${goldRequired.toLocaleString()}, you have ${currentGold.toLocaleString()}.`
+        error: `Insufficient on-chain $GOLD. Need ${goldRequired.toLocaleString()}, wallet holds ${onChainBalance.toLocaleString()}.`
       });
     }
 
-    // ── Deduct gold and add item ──────────────────────────────────────────
+    // ── Transfer $GOLD tokens: user → treasury (on-chain) ─────────────────
+    let txSignature;
+    try {
+      txSignature = await transferSPLToken(
+        connection,
+        buyerKeypair,
+        treasuryAddress,
+        goldCA,
+        goldRequired
+      );
+    } catch (txErr) {
+      console.error('[buy-nest-gold] SPL transfer failed:', txErr.message);
+      return res.status(400).json({
+        error: 'Token transfer failed: ' + (txErr.message || 'Unknown error')
+      });
+    }
+
+    // ── Build nest item and update Firestore ──────────────────────────────
     const tag4    = String(Math.floor(1000 + Math.random() * 9000));
     const nestTag = `${nestInfo.baseName}#${tag4}`;
 
     const newNestItem = {
-      id:          `nest_${Date.now()}_${tag4}`,
-      type:        'nest',
+      id:            `nest_${Date.now()}_${tag4}`,
+      type:          'nest',
       rarity,
-      baseName:    nestInfo.baseName,
+      baseName:      nestInfo.baseName,
       nestTag,
-      priceSol:    nestInfo.price,
-      priceGold:   goldRequired,
+      priceSol:      nestInfo.price,
+      priceGold:     goldRequired,
+      txSignature,
       paymentMethod: 'gold',
-      purchasedAt: new Date().toISOString(),
-      image:       `images/nest/${rarity}.png`,
+      purchasedAt:   new Date().toISOString(),
+      image:         `images/nest/${rarity}.png`,
     };
 
     const currentInventory = userData.inventory || [];
     currentInventory.push(newNestItem);
-    const newGold = currentGold - goldRequired;
 
-    // ── Register new nest's regen timer (energy stays at 20 fixed slots) ─
     const newNestCfg     = ENERGY_CONFIG[rarity];
     const newNestRegenMs = newNestCfg ? newNestCfg.regenMs : 14400000;
     const currentEnergy  = typeof userData.energy === 'number' ? userData.energy : 0;
-    // Energy doesn't increase on purchase — slots fixed at 20
-    // Just add the regen timer so this nest starts ticking immediately
-    const nestTimers = { ...(userData.nestTimers || {}), [newNestItem.id]: { nextTickAt: new Date(Date.now() + newNestRegenMs).toISOString() } };
+    const nestTimers = {
+      ...(userData.nestTimers || {}),
+      [newNestItem.id]: { nextTickAt: new Date(Date.now() + newNestRegenMs).toISOString() }
+    };
 
-    await ref.update({ inventory: currentInventory, goldBalance: newGold, energy: currentEnergy, nestTimers });
+    await ref.update({ inventory: currentInventory, energy: currentEnergy, nestTimers });
 
-    console.log(`[buy-nest-gold] uid=${uid} bought ${nestTag} rarity=${rarity} goldSpent=${goldRequired} goldLeft=${newGold}`);
+    console.log(`[buy-nest-gold] uid=${uid} bought ${nestTag} rarity=${rarity} goldSpent=${goldRequired} tx=${txSignature}`);
 
-    return res.json({ ok: true, nestTag, newGold });
+    return res.json({ ok: true, nestTag, txSignature });
 
   } catch (err) {
     console.error('[buy-nest-gold]', err);
@@ -1088,175 +1243,95 @@ router.get('/swap-config', async (_req, res) => {
     const doc = await db.collection('config').doc('swap').get();
     if (doc.exists) {
       const data = doc.data();
-      return res.json({ ok: true, enabled: data.enabled ?? true });
+      return res.json({
+        ok:            true,
+        enabled:       data.enabled        ?? true,
+        eggToGoldRate: data.eggToGoldRate  ?? 100,
+      });
     }
-    return res.json({ ok: true, enabled: true });
+    return res.json({ ok: true, enabled: true, eggToGoldRate: 100 });
   } catch (err) {
     console.error('[/api/swap-config]', err);
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
 
-// ── POST /api/swap/gold-to-sol ────────────────────────────────────────────────
-// User burns $GOLD; backend sends real SOL from store wallet to user's wallet.
-// Rate: 1 GOLD = 1 PHP. SOL/PHP fetched live from CoinGecko.
-// 2% slippage fee applied. Minimum: 102 GOLD.
-router.post('/swap/gold-to-sol', requireAuth, async (req, res) => {
+// ── POST /api/swap/egg-to-gold ────────────────────────────────────────────────
+// User spends eggs; receives goldBalance in-game.
+// Rate: admin-configured eggToGoldRate (e.g. 1 egg = 100 gold).
+// 2% slippage fee deducted from gold received. Minimum: 1 egg.
+router.post('/swap/egg-to-gold', requireAuth, async (req, res) => {
   try {
-    const db  = getFirestore();
+    const db = getFirestore();
 
-    // Check if swap is enabled in config
+    // Check if swap is enabled
     const swapConfigDoc = await db.collection('config').doc('swap').get();
-    const swapEnabled = swapConfigDoc.exists ? (swapConfigDoc.data().enabled ?? true) : true;
-    if (!swapEnabled) {
+    const swapData    = swapConfigDoc.exists ? swapConfigDoc.data() : {};
+    const swapEnabled = swapData.enabled     ?? true;
+    const eggToGoldRate = Number(swapData.eggToGoldRate ?? 100);
+
+    if (!swapEnabled)
       return res.status(400).json({ error: 'Swap feature is temporarily disabled by administrator.' });
-    }
 
-    const { goldAmount } = req.body;
+    const { eggAmount } = req.body;
+    if (!Number.isInteger(eggAmount) || eggAmount <= 0)
+      return res.status(400).json({ error: 'eggAmount must be a positive integer.' });
 
-    if (!Number.isInteger(goldAmount) || goldAmount <= 0)
-      return res.status(400).json({ error: 'goldAmount must be a positive integer.' });
-
-    const MIN_GOLD = 102;
-    if (goldAmount < MIN_GOLD)
-      return res.status(400).json({ error: `Minimum swap is ${MIN_GOLD} GOLD.` });
+    const MIN_EGGS = 1;
+    if (eggAmount < MIN_EGGS)
+      return res.status(400).json({ error: `Minimum swap is ${MIN_EGGS} egg.` });
 
     const uid = req.user.uid;
     const ref = db.collection('users').doc(uid);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
 
-    const userData    = doc.data();
-    const currentGold = userData.goldBalance || 0;
+    const userData       = doc.data();
+    const currentEggs    = userData.eggBalance    || 0;
+    const currentGold    = userData.goldBalance   || 0;
 
-    if (currentGold < goldAmount)
+    if (currentEggs < eggAmount)
       return res.status(400).json({
-        error: `Insufficient GOLD. Have ${currentGold.toLocaleString()}, need ${goldAmount.toLocaleString()}.`
+        error: `Insufficient eggs. Have ${currentEggs.toLocaleString()}, need ${eggAmount.toLocaleString()}.`
       });
 
-    // ── Fetch live SOL/PHP price ──────────────────────────────────────────
-    const https = require('https');
-    const fetchJson = (url) => new Promise((resolve, reject) => {
-      https.get(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'SolClash/1.0' } }, (r) => {
-        let data = '';
-        r.on('data', c => data += c);
-        r.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
-      }).on('error', reject);
-    });
+    // Apply 2% slippage: fee deducted from gold received
+    const SLIPPAGE   = 0.02;
+    const grossGold  = Math.floor(eggAmount * eggToGoldRate);
+    const feeGold    = Math.round(grossGold * SLIPPAGE);
+    const netGold    = grossGold - feeGold;
 
-    let solPhp;
-    try {
-      const cgData = await fetchJson('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=php');
-      solPhp = cgData?.solana?.php;
-    } catch (e) {
-      console.error('[swap/gold-to-sol] CoinGecko error:', e);
-    }
+    const newEggs = currentEggs - eggAmount;
+    const newGold = currentGold + netGold;
 
-    if (!solPhp || typeof solPhp !== 'number')
-      return res.status(502).json({ error: 'Could not fetch live SOL price. Try again shortly.' });
+    await ref.update({ eggBalance: newEggs, goldBalance: newGold });
 
-    // Apply 2% slippage fee: user pays goldAmount, gets 98% worth of SOL
-    // 1 GOLD = 1 PHP → effectiveGold PHP ÷ solPhp = SOL to send
-    const SLIPPAGE      = 0.02;
-    const effectiveGold = goldAmount * (1 - SLIPPAGE); // 98% of gold value
-    const solAmount     = effectiveGold / solPhp;       // convert PHP → SOL
-    const lamports      = Math.floor(solAmount * LAMPORTS_PER_SOL);
-
-    if (lamports <= 0)
-      return res.status(400).json({ error: 'Swap amount too small to produce any SOL.' });
-
-    // ── Load store wallet keypair ─────────────────────────────────────────
-    const storePrivKeyB58 = process.env.STORE_WALLET_PRIVATE_KEY;
-    if (!storePrivKeyB58) {
-      console.error('[swap/gold-to-sol] STORE_WALLET_PRIVATE_KEY not set in .env');
-      return res.status(500).json({ error: 'Store wallet not configured.' });
-    }
-
-    let storeKeypair;
-    try {
-      storeKeypair = Keypair.fromSecretKey(bs58.decode(storePrivKeyB58));
-    } catch (e) {
-      console.error('[swap/gold-to-sol] Invalid store keypair:', e);
-      return res.status(500).json({ error: 'Store wallet key invalid.' });
-    }
-
-    // ── Check store wallet balance ────────────────────────────────────────
-    const connection   = getSolanaConnection();
-    const storeBalance = await connection.getBalance(storeKeypair.publicKey);
-    const feeCushion   = 5000; // ~0.000005 SOL for tx fee
-
-    if (storeBalance < lamports + feeCushion) {
-      console.error(`[swap/gold-to-sol] Store wallet low: ${storeBalance} lamports, needs ${lamports + feeCushion}`);
-      return res.status(503).json({ error: 'Congested transaction, please try again later.' });
-    }
-
-    // ── Get user wallet address ───────────────────────────────────────────
-    let userWalletAddress;
-    try {
-      userWalletAddress = userData.walletPublicKey ? decrypt(userData.walletPublicKey) : null;
-    } catch {
-      userWalletAddress = userData.walletPublicKey || null;
-    }
-
-    if (!userWalletAddress)
-      return res.status(400).json({ error: 'No wallet address found for this account.' });
-
-    const userPubkey = new PublicKey(userWalletAddress);
-
-    // ── Deduct GOLD first (prevents double-spend) ─────────────────────────
-    const newGold = currentGold - goldAmount;
-    await ref.update({ goldBalance: newGold });
-
-    // ── Send SOL from store wallet → user wallet ──────────────────────────
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: storeKeypair.publicKey,
-        toPubkey:   userPubkey,
-        lamports,
-      })
-    );
-
-    let txSignature;
-    try {
-      txSignature = await sendAndConfirmTransaction(
-        connection, transaction, [storeKeypair], { commitment: 'confirmed' }
-      );
-    } catch (txErr) {
-      // TX failed — refund the gold
-      console.error('[swap/gold-to-sol] TX failed, refunding gold:', txErr);
-      await ref.update({ goldBalance: currentGold });
-      return res.status(400).json({
-        error: 'Solana transaction failed: ' + (txErr.message || 'Unknown error')
-      });
-    }
-
-    // ── Record swap history ───────────────────────────────────────────────
+    // Record swap history
     await db.collection('swaps').add({
       uid,
-      goldBurned:  goldAmount,
-      feeGold:     Math.round(goldAmount * SLIPPAGE),
-      solSent:     solAmount,
-      lamports,
-      solPhp,
-      txSignature,
-      toWallet:    userWalletAddress,
-      createdAt:   new Date().toISOString(),
+      type:       'egg-to-gold',
+      eggSpent:   eggAmount,
+      grossGold,
+      feeGold,
+      netGold,
+      eggToGoldRate,
+      createdAt:  new Date().toISOString(),
     });
 
-    console.log(`[swap/gold-to-sol] uid=${uid} goldBurned=${goldAmount} solSent=${solAmount.toFixed(6)} tx=${txSignature}`);
+    console.log(`[swap/egg-to-gold] uid=${uid} eggs=${eggAmount} grossGold=${grossGold} fee=${feeGold} netGold=${netGold}`);
 
     return res.json({
-      ok:         true,
-      goldBurned: goldAmount,
-      feeGold:    Math.round(goldAmount * SLIPPAGE),
-      solSent:    parseFloat(solAmount.toFixed(6)),
+      ok:       true,
+      eggSpent: eggAmount,
+      feeGold,
+      netGold,
+      newEggs,
       newGold,
-      txSignature,
-      rate:       `${goldAmount} GOLD → ${solAmount.toFixed(6)} SOL`,
+      rate:     `${eggAmount} egg${eggAmount > 1 ? 's' : ''} → ${netGold.toLocaleString()} GOLD`,
     });
 
   } catch (err) {
-    console.error('[swap/gold-to-sol]', err);
+    console.error('[swap/egg-to-gold]', err);
     return res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
@@ -1701,6 +1776,14 @@ router.post('/farm/hatch', requireAuth, async (req, res) => {
     console.error('[/api/farm/hatch stub]', err);
     return res.status(500).json({ error: 'Server error.' });
   }
+});
+
+// ── GET /api/gold-ca ──────────────────────────────────────────────────────────
+// Returns the $GOLD token contract address from .env so the frontend
+// can build the pump.fun link dynamically without hardcoding the CA.
+router.get('/gold-ca', (_req, res) => {
+  const ca = process.env.GOLD_CA || null;
+  res.json({ ca });
 });
 
 module.exports = router;

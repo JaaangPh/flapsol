@@ -312,44 +312,6 @@
     .pm-result-msg { font-size: .78rem; color: rgba(255,255,255,.5); line-height: 1.4; word-break: break-all; }
     .pm-result-msg a { color: var(--sol-green); }
 
-    /* ── Payment method toggle in modal ── */
-    .pm-pay-toggle {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 12px;
-      padding: 4px;
-    }
-    .pm-pay-btn {
-      flex: 1;
-      padding: 8px 10px;
-      border-radius: 9px;
-      border: none;
-      background: transparent;
-      color: rgba(255,255,255,.5);
-      font-size: .82rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background .18s, color .18s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-    .pm-pay-btn.active {
-      background: rgba(153,69,255,.3);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(153,69,255,.3);
-    }
-    .pm-pay-btn:hover:not(.active) { background: rgba(255,255,255,.08); color: rgba(255,255,255,.8); }
-
-    /* Gold price sub-label on nest cards */
-    .nest-card.common   .nest-price-gold { color: #aaa; }
-    .nest-card.rare     .nest-price-gold { color: #5bb8f5; }
-    .nest-card.legendary .nest-price-gold { color: #f0b840; }
-
     /* wallet section in marketplace */
     .mp-wallet-card {
       background: var(--card);
@@ -489,7 +451,7 @@
       </div>
       <div class="mp-wallet-actions">
         <button class="wallet-action-btn deposit-btn" id="depositBtn">⬇ Deposit</button>
-        <button class="wallet-action-btn swap-btn" disabled title="Coming soon">⇄ Swap</button>
+        <button class="wallet-action-btn swap-btn" id="swapBtn" disabled title="Swap temporarily disabled">⇄ Swap</button>
       </div>
     </div>
 
@@ -515,7 +477,6 @@
               <div class="nest-rarity">Common</div>
               <div class="nest-name">Ice Nest</div>
               <div class="nest-price" id="priceCommonSol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">0.35 SOL</div>
-              <div class="nest-price-gold" id="priceCommonGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
             </div>
           </div>
 
@@ -528,7 +489,6 @@
               <div class="nest-rarity">Rare</div>
               <div class="nest-name">Volcano Nest</div>
               <div class="nest-price" id="priceRareSol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">0.75 SOL</div>
-              <div class="nest-price-gold" id="priceRareGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
             </div>
           </div>
 
@@ -541,7 +501,6 @@
               <div class="nest-rarity">Legendary</div>
               <div class="nest-name">Cosmic Nest</div>
               <div class="nest-price" id="priceLegendarySol"><img src="images/solana.png" alt="SOL" style="width:11px;height:11px;object-fit:contain;vertical-align:middle;margin-right:2px;image-rendering:pixelated;">1.2 SOL</div>
-              <div class="nest-price-gold" id="priceLegendaryGold" style="font-size:.62rem;margin-top:1px;opacity:.7;">— $GOLD</div>
             </div>
           </div>
 
@@ -569,21 +528,15 @@
       <div class="pm-name" id="pmName">Ice Nest</div>
       <div class="pm-desc" id="pmDesc">A frosty nest.</div>
 
-      <!-- Payment method toggle -->
-      <div class="pm-pay-toggle" id="pmPayToggle">
-        <button class="pm-pay-btn active" id="pmPaySol" data-method="sol"><img src="images/solana.png" alt="SOL" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:4px;"> SOL</button>
-        <button class="pm-pay-btn" id="pmPayGold" data-method="gold"><img src="images/gold.png" alt="Gold" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;margin-right:3px;"> $GOLD</button>
-      </div>
-
-      <!-- Price display — switches per method -->
+      <!-- Price display -->
       <div class="pm-price-box">
         <span class="pm-price-label" id="pmPriceLabel">Price</span>
         <span class="pm-price-val" id="pmPrice">0.35 SOL</span>
       </div>
 
-      <!-- Balance line — switches per method -->
+      <!-- Balance line -->
       <div class="pm-wallet-info">
-        <span id="pmBalanceLabel">Your balance:</span> <span id="pmBalance">— SOL</span>
+        <span id="pmBalanceLabel">Wallet balance:</span> <span id="pmBalance">— SOL</span>
       </div>
 
       <!-- Processing state -->
@@ -603,6 +556,55 @@
         <button class="pm-btn-cancel" id="pmCancel">Cancel</button>
         <button class="pm-btn-buy" id="pmBuy">🛒 Buy Now</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Swap Modal ── -->
+  <div id="swapModal" class="modal-overlay" style="display:none">
+    <div class="modal-box swap-modal-box">
+      <div class="swap-header">
+        <h3 class="swap-title">Exchange</h3>
+        <button class="swap-close-btn" id="swapCloseBtn">✕</button>
+      </div>
+      <div class="swap-panel swap-panel-from">
+        <div class="swap-panel-top">
+          <span class="swap-panel-label">From</span>
+          <div class="swap-token-badge">
+            <img src="images/egg.png" alt="EGG" class="swap-token-icon" />
+            <span>EGG</span>
+          </div>
+          <span class="swap-change-badge" id="swapChangeBadge">2% fee</span>
+        </div>
+        <input id="swapEggInput" class="swap-amount-input" type="number" min="1" step="1" placeholder="0" autocomplete="off" />
+        <div class="swap-panel-bottom">
+          <span class="swap-avail-label">Available: <span id="swapEggAvail">0</span> Eggs</span>
+          <button class="swap-max-btn" id="swapMaxBtn">MAX</button>
+        </div>
+      </div>
+      <div class="swap-arrow-row"><div class="swap-arrow-circle">⇅</div></div>
+      <div class="swap-panel swap-panel-to">
+        <div class="swap-panel-top">
+          <span class="swap-panel-label">To</span>
+          <div class="swap-token-badge">
+            <img src="images/gold.png" alt="GOLD" class="swap-token-icon" />
+            <span>GOLD</span>
+          </div>
+          <span class="swap-change-badge swap-change-negative" id="swapGoldBadge">≈ 0 GOLD</span>
+        </div>
+        <div class="swap-sol-preview" id="swapGoldPreview">0</div>
+        <div class="swap-panel-bottom">
+          <span class="swap-avail-label">Balance: <span id="swapGoldBal">0</span> GOLD</span>
+        </div>
+      </div>
+      <div class="swap-fee-row">
+        <span class="swap-fee-label">Exchange fee <span class="swap-fee-info" title="2% slippage fee">ⓘ</span></span>
+        <span class="swap-fee-val" id="swapFeeVal">—</span>
+      </div>
+      <div class="swap-rate-row" id="swapRateRow" style="display:none">
+        <span class="swap-rate-text" id="swapRateText"></span>
+      </div>
+      <p id="swapError" class="swap-error" style="display:none"></p>
+      <button class="swap-confirm-btn" id="swapConfirmBtn">Swap</button>
     </div>
   </div>
 
@@ -795,12 +797,10 @@
 
     let _walletAddr    = null;
     let _walletBalance = 0;
-    let _goldBalance   = 0;
     let _currentNest   = null;
-    let _goldPrices    = { common: null, rare: null, legendary: null };
     let _payMethod     = 'sol';
 
-    /* ── Load nest SOL prices + live gold prices ── */
+    /* ── Load nest SOL prices ── */
     (async function loadPrices() {
       try {
         const solRes  = await fetch('/api/marketplace/nest-prices');
@@ -816,49 +816,132 @@
           }
         }
       } catch(e) {}
-      loadGoldPrices();
     })();
 
-    function loadGoldPrices() {
-      fetch('/api/marketplace/sol-php')
-        .then(r => r.json())
-        .then(d => {
-          if (!d.ok || !d.gold) return;
-          _goldPrices = d.gold;
-          document.getElementById('priceCommonGold').textContent    = _goldPrices.common.toLocaleString()    + ' $GOLD';
-          document.getElementById('priceRareGold').textContent      = _goldPrices.rare.toLocaleString()      + ' $GOLD';
-          document.getElementById('priceLegendaryGold').textContent = _goldPrices.legendary.toLocaleString() + ' $GOLD';
-          document.querySelector('[data-rarity="common"]').dataset.gold    = _goldPrices.common;
-          document.querySelector('[data-rarity="rare"]').dataset.gold      = _goldPrices.rare;
-          document.querySelector('[data-rarity="legendary"]').dataset.gold = _goldPrices.legendary;
-        })
-        .catch(() => { document.querySelectorAll('.nest-price-gold').forEach(el => el.textContent = '— $GOLD'); });
+    /* ── Swap config — mirrors admin setting ── */
+    const SLIPPAGE_MP = 0.02;
+    let _swapEnabled_mp    = false;
+    let _swapEggRate_mp    = 100;
+    let _swapEggBal_mp     = 0;
+    let _swapCurGold_mp    = 0;
+
+    (async function checkSwapStatus() {
+      try {
+        const res  = await fetch('/api/swap-config');
+        const data = await res.json();
+        const btn  = document.getElementById('swapBtn');
+        _swapEnabled_mp = !!data.enabled;
+        _swapEggRate_mp = data.eggToGoldRate ?? 100;
+        if (!btn) return;
+        if (data.enabled) {
+          btn.disabled = false;
+          btn.title    = '⇄ Swap';
+          btn.style.opacity = '';
+        } else {
+          btn.disabled = true;
+          btn.title    = 'Swap is temporarily disabled';
+          btn.style.opacity = '0.5';
+        }
+      } catch (e) { /* leave button disabled on error */ }
+    })();
+
+    function updateSwapPreview_mp() {
+      const eggs = parseInt(document.getElementById('swapEggInput').value, 10) || 0;
+      document.getElementById('swapError').style.display = 'none';
+      if (eggs <= 0) {
+        document.getElementById('swapGoldPreview').textContent = '0';
+        document.getElementById('swapFeeVal').textContent      = '—';
+        document.getElementById('swapRateRow').style.display   = 'none';
+        document.getElementById('swapGoldBadge').textContent   = '≈ 0 GOLD';
+        return;
+      }
+      const grossGold = Math.floor(eggs * _swapEggRate_mp);
+      const feeGold   = Math.round(grossGold * SLIPPAGE_MP);
+      const netGold   = grossGold - feeGold;
+      document.getElementById('swapGoldPreview').textContent = netGold.toLocaleString();
+      document.getElementById('swapFeeVal').textContent      = `${feeGold.toLocaleString()} GOLD`;
+      document.getElementById('swapGoldBadge').textContent   = `≈ ${netGold.toLocaleString()} GOLD`;
+      document.getElementById('swapRateRow').style.display   = 'block';
+      document.getElementById('swapRateText').textContent    = `Rate: 1 egg = ${_swapEggRate_mp} gold · 2% fee`;
     }
 
-    /* ── Payment toggle ── */
-    function setPayMethod(method) {
-      _payMethod = method;
-      document.getElementById('pmPaySol').classList.toggle('active',  method === 'sol');
-      document.getElementById('pmPayGold').classList.toggle('active', method === 'gold');
-      updateModalPriceDisplay();
-    }
-    function updateModalPriceDisplay() {
-      if (!_currentNest) return;
-      if (_payMethod === 'sol') {
-        document.getElementById('pmPrice').textContent        = _currentNest.price + ' SOL';
-        document.getElementById('pmBalanceLabel').textContent = 'Wallet balance:';
-        document.getElementById('pmBalance').textContent      = _walletBalance.toFixed(4) + ' SOL';
-        document.getElementById('pmBuy').innerHTML = '<img src="images/buy.png" alt="buy" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:5px;"> Buy with SOL';
-      } else {
-        const gp = _currentNest.goldPrice;
-        document.getElementById('pmPrice').textContent        = gp != null ? gp.toLocaleString() + ' $GOLD' : '— $GOLD (loading…)';
-        document.getElementById('pmBalanceLabel').textContent = '$GOLD balance:';
-        document.getElementById('pmBalance').textContent      = _goldBalance.toLocaleString() + ' $GOLD';
-        document.getElementById('pmBuy').innerHTML = '<img src="images/buy.png" alt="buy" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:5px;"> Buy with $GOLD';
+    function openSwapModal_mp() {
+      if (!_swapEnabled_mp) {
+        showAlert('The swap feature is temporarily disabled by the administrator.', '💱 Swap Disabled');
+        return;
       }
+      document.getElementById('swapEggAvail').textContent  = _swapEggBal_mp.toLocaleString();
+      document.getElementById('swapGoldBal').textContent   = _swapCurGold_mp.toLocaleString();
+      document.getElementById('swapEggInput').value        = '';
+      document.getElementById('swapGoldPreview').textContent = '0';
+      document.getElementById('swapFeeVal').textContent    = '—';
+      document.getElementById('swapRateRow').style.display = 'none';
+      document.getElementById('swapError').style.display   = 'none';
+      document.getElementById('swapConfirmBtn').disabled   = false;
+      document.getElementById('swapConfirmBtn').textContent = 'Swap';
+      document.getElementById('swapModal').style.display   = 'flex';
     }
-    document.getElementById('pmPaySol').addEventListener('click',  () => setPayMethod('sol'));
-    document.getElementById('pmPayGold').addEventListener('click', () => setPayMethod('gold'));
+
+    document.getElementById('swapBtn').addEventListener('click', openSwapModal_mp);
+    document.getElementById('swapCloseBtn').addEventListener('click', () => {
+      document.getElementById('swapModal').style.display = 'none';
+    });
+    document.getElementById('swapModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('swapModal'))
+        document.getElementById('swapModal').style.display = 'none';
+    });
+    document.getElementById('swapEggInput').addEventListener('input', updateSwapPreview_mp);
+    document.getElementById('swapMaxBtn').addEventListener('click', () => {
+      document.getElementById('swapEggInput').value = _swapEggBal_mp;
+      updateSwapPreview_mp();
+    });
+    document.getElementById('swapConfirmBtn').addEventListener('click', async () => {
+      const eggs = parseInt(document.getElementById('swapEggInput').value, 10);
+      document.getElementById('swapError').style.display = 'none';
+      if (!eggs || eggs < 1) {
+        document.getElementById('swapError').textContent   = 'Minimum swap is 1 egg.';
+        document.getElementById('swapError').style.display = 'block';
+        return;
+      }
+      if (eggs > _swapEggBal_mp) {
+        document.getElementById('swapError').textContent   = 'Insufficient egg balance.';
+        document.getElementById('swapError').style.display = 'block';
+        return;
+      }
+      document.getElementById('swapConfirmBtn').disabled    = true;
+      document.getElementById('swapConfirmBtn').textContent = 'Swapping…';
+      try {
+        const res  = await fetch('/api/swap/egg-to-gold', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eggAmount: eggs }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById('swapError').textContent   = data.error || 'Swap failed.';
+          document.getElementById('swapError').style.display = 'block';
+          document.getElementById('swapConfirmBtn').disabled    = false;
+          document.getElementById('swapConfirmBtn').textContent = 'Swap';
+          return;
+        }
+        _swapEggBal_mp  = data.newEggs;
+        _swapCurGold_mp = data.newGold;
+        document.getElementById('swapEggAvail').textContent = data.newEggs.toLocaleString();
+        document.getElementById('swapGoldBal').textContent  = data.newGold.toLocaleString();
+        document.getElementById('swapModal').style.display  = 'none';
+        showAlert(
+          `✅ Swap successful!<br><br>` +
+          `Spent: <b>${eggs.toLocaleString()} Egg${eggs > 1 ? 's' : ''}</b><br>` +
+          `Received: <b>${data.netGold.toLocaleString()} GOLD</b><br>` +
+          `<span style="font-size:.78rem;color:rgba(255,255,255,.45);">Fee deducted: ${data.feeGold.toLocaleString()} GOLD</span>`,
+          '⇄ Swap Complete'
+        );
+      } catch (err) {
+        document.getElementById('swapError').textContent   = 'Network error — check connection.';
+        document.getElementById('swapError').style.display = 'block';
+        document.getElementById('swapConfirmBtn').disabled    = false;
+        document.getElementById('swapConfirmBtn').textContent = 'Swap';
+      }
+    });
 
     /* ── Load user ── */
     fetch('/auth/me')
@@ -886,8 +969,11 @@
         document.getElementById('qrAddressFull').textContent   = _walletAddr || '—';
 
         _walletBalance = u.walletBalance || 0;
-        _goldBalance   = u.goldBalance   || 0;
         document.getElementById('walletBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
+
+        // Populate swap modal balances
+        _swapEggBal_mp  = u.eggBalance  || 0;
+        _swapCurGold_mp = u.goldBalance || 0;
 
         if (_walletAddr) {
           fetch('/api/balance/' + _walletAddr)
@@ -901,7 +987,6 @@
         }
 
         document.getElementById('dashboard').style.opacity = '1';
-        loadGoldPrices();
       })
       .catch(() => { window.location.href = '/'; });
 
@@ -1035,12 +1120,11 @@
     document.querySelectorAll('.nest-card').forEach(card => {
       card.addEventListener('click', () => {
         _currentNest = {
-          rarity:    card.dataset.rarity,
-          name:      card.dataset.name,
-          price:     parseFloat(card.dataset.price),
-          goldPrice: card.dataset.gold ? parseInt(card.dataset.gold, 10) : (_goldPrices[card.dataset.rarity] || null),
-          img:       card.dataset.img,
-          desc:      card.dataset.desc,
+          rarity: card.dataset.rarity,
+          name:   card.dataset.name,
+          price:  parseFloat(card.dataset.price),
+          img:    card.dataset.img,
+          desc:   card.dataset.desc,
         };
         openPurchaseModal(_currentNest);
       });
@@ -1054,15 +1138,12 @@
       document.getElementById('pmRarity').textContent = nest.rarity.charAt(0).toUpperCase() + nest.rarity.slice(1);
       document.getElementById('pmName').textContent   = nest.name;
       document.getElementById('pmDesc').textContent   = nest.desc;
-      // reset to SOL on each open
-      _payMethod = 'sol';
-      document.getElementById('pmPaySol').classList.add('active');
-      document.getElementById('pmPayGold').classList.remove('active');
-      updateModalPriceDisplay();
+      document.getElementById('pmPrice').textContent  = nest.price + ' SOL';
+      document.getElementById('pmBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
+      document.getElementById('pmBuy').innerHTML = '<img src="images/buy.png" alt="buy" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;margin-right:5px;"> Buy with SOL';
       document.getElementById('pmProcessing').classList.remove('visible');
       document.getElementById('pmResult').classList.remove('visible');
-      document.getElementById('pmActions').style.display  = 'flex';
-      document.getElementById('pmPayToggle').style.display = 'flex';
+      document.getElementById('pmActions').style.display = 'flex';
       document.getElementById('pmBuy').disabled = false;
       overlay.classList.add('open');
     }
@@ -1078,83 +1159,46 @@
     /* ── Buy button ── */
     document.getElementById('pmBuy').addEventListener('click', async () => {
       if (!_currentNest) return;
-      if (_payMethod === 'sol' && !_walletAddr) {
-        showAlert('No wallet found. Please refresh.', '⚠️ Wallet Error'); return;
-      }
+      if (!_walletAddr) { showAlert('No wallet found. Please refresh.', '⚠️ Wallet Error'); return; }
+
       const buyBtn     = document.getElementById('pmBuy');
       const cancelBtn  = document.getElementById('pmCancel');
       const processing = document.getElementById('pmProcessing');
       const result     = document.getElementById('pmResult');
       const actions    = document.getElementById('pmActions');
-      const toggle     = document.getElementById('pmPayToggle');
       buyBtn.disabled = true;
       cancelBtn.style.pointerEvents = 'none';
-      toggle.style.display = 'none';
       processing.classList.add('visible');
+      document.getElementById('pmProcessingText').textContent = 'Sending transaction to Solana…';
 
-      if (_payMethod === 'sol') {
-        document.getElementById('pmProcessingText').textContent = 'Sending transaction to Solana…';
-        try {
-          const res  = await fetch('/api/marketplace/buy-nest', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rarity: _currentNest.rarity }),
-          });
-          const data = await res.json();
-          processing.classList.remove('visible');
-          if (res.ok && data.ok) {
-            _walletBalance = data.newBalance || _walletBalance;
-            document.getElementById('walletBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
-            result.classList.add('visible');
-            document.getElementById('pmResultIcon').textContent  = '✅';
-            document.getElementById('pmResultTitle').textContent = 'Purchase Successful!';
-            document.getElementById('pmResultMsg').innerHTML =
-              '<strong style="color:var(--sol-green)">' + data.nestTag + '</strong> added to inventory!<br><br>' +
-              '<span style="font-size:.7rem">TX: <a href="https://solscan.io/tx/' + data.txSignature + '" target="_blank" style="color:var(--sol-green)">' + data.txSignature.slice(0,20) + '…</a></span>';
-            actions.innerHTML = '<button class="pm-btn-buy" id="pmDone" style="width:100%">🎒 Go to Inventory</button>';
-            document.getElementById('pmDone').addEventListener('click', () => { window.location.href = '/inventory'; });
-          } else { throw new Error(data.error || 'Transaction failed.'); }
-        } catch (err) {
-          processing.classList.remove('visible');
+      try {
+        const res  = await fetch('/api/marketplace/buy-nest', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rarity: _currentNest.rarity }),
+        });
+        const data = await res.json();
+        processing.classList.remove('visible');
+        if (res.ok && data.ok) {
+          _walletBalance = data.newBalance || _walletBalance;
+          document.getElementById('walletBalance').textContent = _walletBalance.toFixed(4) + ' SOL';
           result.classList.add('visible');
-          document.getElementById('pmResultIcon').textContent  = '❌';
-          document.getElementById('pmResultTitle').textContent = 'Purchase Failed';
-          document.getElementById('pmResultMsg').textContent   = err.message;
-          actions.innerHTML = '<button class="pm-btn-cancel" id="pmRetry" style="flex:1">Close</button>';
-          document.getElementById('pmRetry').addEventListener('click', () => { document.getElementById('purchaseOverlay').classList.remove('open'); });
-          cancelBtn.style.pointerEvents = '';
-        }
-
-      } else {
-        // $GOLD payment
-        document.getElementById('pmProcessingText').textContent = 'Deducting $GOLD…';
-        try {
-          const res  = await fetch('/api/marketplace/buy-nest-gold', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rarity: _currentNest.rarity }),
-          });
-          const data = await res.json();
-          processing.classList.remove('visible');
-          if (res.ok && data.ok) {
-            _goldBalance = data.newGold;
-            result.classList.add('visible');
-            document.getElementById('pmResultIcon').textContent  = '✅';
-            document.getElementById('pmResultTitle').textContent = 'Purchase Successful!';
-            document.getElementById('pmResultMsg').innerHTML =
-              '<strong style="color:var(--sol-green)">' + data.nestTag + '</strong> added to inventory!<br><br>' +
-              '<span style="font-size:.78rem;color:rgba(255,255,255,.5);">Remaining $GOLD: <strong style="color:#ffd050">' + data.newGold.toLocaleString() + '</strong></span>';
-            actions.innerHTML = '<button class="pm-btn-buy" id="pmDone" style="width:100%">🎒 Go to Inventory</button>';
-            document.getElementById('pmDone').addEventListener('click', () => { window.location.href = '/inventory'; });
-          } else { throw new Error(data.error || 'Purchase failed.'); }
-        } catch (err) {
-          processing.classList.remove('visible');
-          result.classList.add('visible');
-          document.getElementById('pmResultIcon').textContent  = '❌';
-          document.getElementById('pmResultTitle').textContent = 'Purchase Failed';
-          document.getElementById('pmResultMsg').textContent   = err.message;
-          actions.innerHTML = '<button class="pm-btn-cancel" id="pmRetry" style="flex:1">Close</button>';
-          document.getElementById('pmRetry').addEventListener('click', () => { document.getElementById('purchaseOverlay').classList.remove('open'); });
-          cancelBtn.style.pointerEvents = '';
-        }
+          document.getElementById('pmResultIcon').textContent  = '✅';
+          document.getElementById('pmResultTitle').textContent = 'Purchase Successful!';
+          document.getElementById('pmResultMsg').innerHTML =
+            '<strong style="color:var(--sol-green)">' + data.nestTag + '</strong> added to inventory!<br><br>' +
+            '<span style="font-size:.7rem">TX: <a href="https://solscan.io/tx/' + data.txSignature + '" target="_blank" style="color:var(--sol-green)">' + data.txSignature.slice(0,20) + '…</a></span>';
+          actions.innerHTML = '<button class="pm-btn-buy" id="pmDone" style="width:100%">🎒 Go to Inventory</button>';
+          document.getElementById('pmDone').addEventListener('click', () => { window.location.href = '/inventory'; });
+        } else { throw new Error(data.error || 'Transaction failed.'); }
+      } catch (err) {
+        processing.classList.remove('visible');
+        result.classList.add('visible');
+        document.getElementById('pmResultIcon').textContent  = '❌';
+        document.getElementById('pmResultTitle').textContent = 'Purchase Failed';
+        document.getElementById('pmResultMsg').textContent   = err.message;
+        actions.innerHTML = '<button class="pm-btn-cancel" id="pmRetry" style="flex:1">Close</button>';
+        document.getElementById('pmRetry').addEventListener('click', () => { document.getElementById('purchaseOverlay').classList.remove('open'); });
+        cancelBtn.style.pointerEvents = '';
       }
     });
 

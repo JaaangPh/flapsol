@@ -125,6 +125,27 @@
         </div>
       </div>
 
+      <!-- ── Buy $GOLD button ── -->
+      <a id="buyGoldBtn" href="#" target="_blank" rel="noopener noreferrer"
+        style="display:flex;align-items:center;gap:12px;
+               grid-column:1/-1;width:100%;
+               padding:18px 16px;margin-bottom:0;
+               background:rgba(8,8,26,0.88);
+               border:1px solid rgba(255,255,255,.1);border-radius:18px;
+               color:#fff;font-size:.85rem;font-weight:700;text-decoration:none;
+               backdrop-filter:blur(14px);
+               box-shadow:0 4px 16px rgba(0,0,0,.4);
+               transition:transform .15s,border-color .2s;">
+        <img src="images/pump.png" alt="pump.fun"
+             style="width:38px;height:38px;object-fit:contain;border-radius:8px;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(153,69,255,.3));"
+             onerror="this.style.display='none'" />
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <span style="font-size:.72rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Buy Token</span>
+          <span style="color:#14f195;font-size:1.3rem;font-weight:800;line-height:1;">BUY $GOLD</span>
+          <span style="color:rgba(255,255,255,.4);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;">PUMP.FUN</span>
+        </div>
+      </a>
+
       <div class="stat-card wallet-card">
         <div class="wallet-header">
           <span class="stat-label">Solana Wallet</span>
@@ -213,27 +234,27 @@
         <button class="swap-close-btn" id="swapCloseBtn">✕</button>
       </div>
 
-      <!-- FROM panel: GOLD -->
+      <!-- FROM panel: EGG -->
       <div class="swap-panel swap-panel-from">
         <div class="swap-panel-top">
           <span class="swap-panel-label">From</span>
           <div class="swap-token-badge">
-            <img src="images/gold.png" alt="GOLD" class="swap-token-icon" />
-            <span>GOLD</span>
+            <img src="images/egg.png" alt="EGG" class="swap-token-icon" />
+            <span>EGG</span>
           </div>
           <span class="swap-change-badge" id="swapChangeBadge">2% fee</span>
         </div>
         <input
-          id="swapGoldInput"
+          id="swapEggInput"
           class="swap-amount-input"
           type="number"
-          min="102"
+          min="1"
           step="1"
           placeholder="0"
           autocomplete="off"
         />
         <div class="swap-panel-bottom">
-          <span class="swap-avail-label">Available: <span id="swapGoldAvail">0</span> GOLD</span>
+          <span class="swap-avail-label">Available: <span id="swapEggAvail">0</span> Eggs</span>
           <button class="swap-max-btn" id="swapMaxBtn">MAX</button>
         </div>
       </div>
@@ -243,19 +264,19 @@
         <div class="swap-arrow-circle">⇅</div>
       </div>
 
-      <!-- TO panel: SOL -->
+      <!-- TO panel: GOLD -->
       <div class="swap-panel swap-panel-to">
         <div class="swap-panel-top">
           <span class="swap-panel-label">To</span>
           <div class="swap-token-badge">
-            <img src="images/solana.png" alt="SOL" class="swap-token-icon" />
-            <span>SOL</span>
+            <img src="images/gold.png" alt="GOLD" class="swap-token-icon" />
+            <span>GOLD</span>
           </div>
-          <span class="swap-change-badge swap-change-negative" id="swapSolBadge">≈ 0 SOL</span>
+          <span class="swap-change-badge swap-change-negative" id="swapGoldBadge">≈ 0 GOLD</span>
         </div>
-        <div class="swap-sol-preview" id="swapSolPreview">0.000000</div>
+        <div class="swap-sol-preview" id="swapGoldPreview">0</div>
         <div class="swap-panel-bottom">
-          <span class="swap-avail-label">Wallet: <span id="swapSolBal">0</span> SOL</span>
+          <span class="swap-avail-label">Balance: <span id="swapGoldBal">0</span> GOLD</span>
         </div>
       </div>
 
@@ -484,11 +505,17 @@
         document.getElementById('expVal').textContent  = `${cur} / ${req}`;
         document.getElementById('expBar').style.width  = Math.min(100, Math.round(cur / req * 100)) + '%';
 
-        document.getElementById('goldBalance').textContent = '0';
-        document.getElementById('totalBP').textContent      = (u.totalBP      || 0).toLocaleString();
-        if (document.getElementById('highScore')) {
-          document.getElementById('highScore').textContent  = (u.highScore    || 0).toLocaleString();
-        }
+        const goldEl = document.getElementById('goldBalance');
+        if (goldEl) goldEl.textContent = (u.goldBalance || 0).toLocaleString();
+        const bpEl = document.getElementById('totalBP');
+        if (bpEl) bpEl.textContent = (u.totalBP || 0).toLocaleString();
+        const hsEl = document.getElementById('highScore');
+        if (hsEl) hsEl.textContent = (u.highScore || 0).toLocaleString();
+
+        // Seed swap modal with fresh balances from auth/me
+        _swapEggBal  = u.eggBalance  || 0;
+        _swapCurGold = u.goldBalance || 0;
+        if (swapEggAvail) swapEggAvail.textContent = _swapEggBal.toLocaleString();
 
         // Wallet
         _walletAddr = u.walletAddress || null;
@@ -497,21 +524,23 @@
         document.getElementById('depositAddrText').textContent = _walletAddr || '—';
         document.getElementById('qrAddressFull').textContent   = _walletAddr || '—';
 
-        // Live balance
+        // Live balances
         document.getElementById('walletBalance').textContent = (u.walletBalance || 0).toFixed(4) + ' SOL';
         if (_walletAddr) {
-          fetch('/api/balance/' + _walletAddr)
+          fetch('/api/balance/' + encodeURIComponent(_walletAddr))
             .then(r => r.json())
             .then(d => {
               if (typeof d.balance === 'number')
                 document.getElementById('walletBalance').textContent = d.balance.toFixed(4) + ' SOL';
             }).catch(() => {});
 
-          fetch('/api/gold-balance/' + _walletAddr)
+          fetch('/api/gold-balance/' + encodeURIComponent(_walletAddr))
             .then(r => r.json())
             .then(d => {
-              if (typeof d.balance === 'number')
-                document.getElementById('goldBalance').textContent = d.balance.toLocaleString();
+              if (typeof d.balance === 'number' && goldEl) {
+                goldEl.textContent = Number(d.balance).toLocaleString();
+                _swapCurGold = Number(d.balance);
+              }
             }).catch(() => {});
         }
 
@@ -527,6 +556,17 @@
         document.getElementById('dashboard').style.opacity = '1';
       })
       .catch(() => { window.location.href = '/'; });
+
+    // ── Load $GOLD CA and wire Buy button ────────────────────────────────────
+    fetch('/api/gold-ca')
+      .then(r => r.json())
+      .then(d => {
+        const btn = document.getElementById('buyGoldBtn');
+        if (d.ca && btn) {
+          btn.href = `https://pump.fun/coin/${d.ca}`;
+        }
+      })
+      .catch(() => {});
 
     // ── Edit Name Modal ───────────────────────────────────────────────────────
     // Custom suffix dropdown
@@ -731,77 +771,67 @@
     // ── Swap Modal ────────────────────────────────────────────────────────────
     const swapModal      = document.getElementById('swapModal');
     const swapCloseBtn   = document.getElementById('swapCloseBtn');
-    const swapGoldInput  = document.getElementById('swapGoldInput');
-    const swapSolPreview = document.getElementById('swapSolPreview');
+    const swapEggInput   = document.getElementById('swapEggInput');
+    const swapGoldPreview = document.getElementById('swapGoldPreview');
     const swapFeeVal     = document.getElementById('swapFeeVal');
     const swapRateRow    = document.getElementById('swapRateRow');
     const swapRateText   = document.getElementById('swapRateText');
     const swapError      = document.getElementById('swapError');
     const swapConfirmBtn = document.getElementById('swapConfirmBtn');
-    const swapGoldAvail  = document.getElementById('swapGoldAvail');
-    const swapSolBal     = document.getElementById('swapSolBal');
+    const swapEggAvail   = document.getElementById('swapEggAvail');
+    const swapGoldBal    = document.getElementById('swapGoldBal');
     const swapMaxBtn     = document.getElementById('swapMaxBtn');
-    const swapSolBadge   = document.getElementById('swapSolBadge');
+    const swapGoldBadge  = document.getElementById('swapGoldBadge');
 
     const SLIPPAGE = 0.02;
-    let _swapSolPhp  = null;  // cached live price
-    let _swapGoldBal = 0;
-    let _swapPriceTimer = null;
+    let _swapEnabled = true;
+    let _swapEggToGoldRate = 100; // default, overwritten by config
+    let _swapEggBal  = 0;
+    let _swapCurGold = 0;
 
-    async function fetchSwapPrice() {
+    async function fetchSwapConfig() {
       try {
-        const r = await fetch('/api/marketplace/sol-php');
+        const r = await fetch('/api/swap-config');
         const d = await r.json();
-        if (d.ok && d.solPhp) { _swapSolPhp = d.solPhp; }
-      } catch (e) { console.warn('[swap price]', e); }
+        if (d.ok) {
+          _swapEnabled = d.enabled;
+          _swapEggToGoldRate = d.eggToGoldRate ?? 100;
+          const swapBtn = document.getElementById('swapBtn');
+          if (swapBtn) {
+            swapBtn.disabled      = !_swapEnabled;
+            swapBtn.style.opacity = _swapEnabled ? '' : '0.5';
+            swapBtn.title         = _swapEnabled ? '⇄ Swap' : 'Swap is temporarily disabled';
+          }
+        }
+      } catch (e) {}
       updateSwapPreview();
     }
 
     function updateSwapPreview() {
-      const gold = parseInt(swapGoldInput.value, 10) || 0;
+      if (!swapEggInput) return;
+      const eggs = parseInt(swapEggInput.value, 10) || 0;
       swapError.style.display = 'none';
 
-      if (!_swapSolPhp || gold <= 0) {
-        swapSolPreview.textContent = '0.000000';
-        swapFeeVal.textContent     = '—';
-        swapRateRow.style.display  = 'none';
-        swapSolBadge.textContent   = '≈ 0 SOL';
+      if (eggs <= 0) {
+        swapGoldPreview.textContent = '0';
+        swapFeeVal.textContent      = '—';
+        swapRateRow.style.display   = 'none';
+        swapGoldBadge.textContent   = '≈ 0 GOLD';
         return;
       }
 
-      const feeGold    = Math.round(gold * SLIPPAGE);
-      const netGold    = gold - feeGold;
-      const solOut     = netGold / _swapSolPhp;
+      const grossGold = Math.floor(eggs * _swapEggToGoldRate);
+      const feeGold   = Math.round(grossGold * SLIPPAGE);
+      const netGold   = grossGold - feeGold;
 
-      swapSolPreview.textContent = solOut.toFixed(6);
-      swapFeeVal.textContent     = `${feeGold.toLocaleString()} GOLD`;
-      swapSolBadge.textContent   = `≈ ${solOut.toFixed(6)} SOL`;
-      swapRateRow.style.display  = 'block';
-      swapRateText.textContent   = `Rate: 1 GOLD ≈ ${(1 / _swapSolPhp).toFixed(8)} SOL · 2% fee`;
+      swapGoldPreview.textContent = netGold.toLocaleString();
+      swapFeeVal.textContent      = `${feeGold.toLocaleString()} GOLD`;
+      swapGoldBadge.textContent   = `≈ ${netGold.toLocaleString()} GOLD`;
+      swapRateRow.style.display   = 'block';
+      swapRateText.textContent    = `Rate: 1 egg = ${_swapEggToGoldRate} gold · 2% fee`;
     }
 
-    let _swapEnabled = true;
-
-    async function checkSwapStatus() {
-      try {
-        const res = await fetch('/api/swap-config');
-        const data = await res.json();
-        if (data.ok) {
-          _swapEnabled = data.enabled;
-          const swapBtn = document.getElementById('swapBtn');
-          if (swapBtn) {
-            if (!_swapEnabled) {
-              swapBtn.style.opacity = '0.5';
-              swapBtn.title = 'Swap is temporarily disabled';
-            } else {
-              swapBtn.style.opacity = '';
-              swapBtn.title = '⇄ Swap';
-            }
-          }
-        }
-      } catch (e) {}
-    }
-    checkSwapStatus();
+    fetchSwapConfig();
 
     function openSwapModal() {
       if (!_swapEnabled) {
@@ -809,50 +839,46 @@
         return;
       }
       const goldEl = document.getElementById('goldBalance');
-      const solEl  = document.getElementById('walletBalance');
-      _swapGoldBal = parseInt((goldEl ? goldEl.textContent.replace(/,/g,'') : '0'), 10) || 0;
-      swapGoldAvail.textContent = _swapGoldBal.toLocaleString();
-      swapSolBal.textContent    = solEl ? solEl.textContent.replace(' SOL', '') : '0';
-      swapGoldInput.value       = '';
-      swapSolPreview.textContent = '0.000000';
-      swapFeeVal.textContent     = '—';
-      swapRateRow.style.display  = 'none';
-      swapError.style.display    = 'none';
-      swapConfirmBtn.disabled    = false;
+      _swapEggBal  = Number.isFinite(_swapEggBal) ? _swapEggBal : 0;
+      _swapCurGold = parseInt((goldEl ? goldEl.textContent.replace(/,/g,'') : '0'), 10) || 0;
+      swapEggAvail.textContent  = _swapEggBal.toLocaleString();
+      swapGoldBal.textContent   = _swapCurGold.toLocaleString();
+      swapEggInput.value        = '';
+      swapGoldPreview.textContent = '0';
+      swapFeeVal.textContent    = '—';
+      swapRateRow.style.display = 'none';
+      swapError.style.display   = 'none';
+      swapConfirmBtn.disabled   = false;
       swapConfirmBtn.textContent = 'Swap';
-      swapModal.style.display    = 'flex';
-      fetchSwapPrice();
-      // Refresh price every 30s while modal is open
-      _swapPriceTimer = setInterval(fetchSwapPrice, 30000);
+      swapModal.style.display   = 'flex';
     }
 
     function closeSwapModal() {
       swapModal.style.display = 'none';
-      if (_swapPriceTimer) { clearInterval(_swapPriceTimer); _swapPriceTimer = null; }
     }
 
     document.getElementById('swapBtn').addEventListener('click', openSwapModal);
     swapCloseBtn.addEventListener('click', closeSwapModal);
     swapModal.addEventListener('click', e => { if (e.target === swapModal) closeSwapModal(); });
 
-    swapGoldInput.addEventListener('input', updateSwapPreview);
+    swapEggInput.addEventListener('input', updateSwapPreview);
 
     swapMaxBtn.addEventListener('click', () => {
-      swapGoldInput.value = _swapGoldBal;
+      swapEggInput.value = _swapEggBal;
       updateSwapPreview();
     });
 
     swapConfirmBtn.addEventListener('click', async () => {
-      const gold = parseInt(swapGoldInput.value, 10);
+      const eggs = parseInt(swapEggInput.value, 10);
       swapError.style.display = 'none';
 
-      if (!gold || gold < 102) {
-        swapError.textContent  = 'Minimum swap is 102 GOLD.';
+      if (!eggs || eggs < 1) {
+        swapError.textContent   = 'Minimum swap is 1 egg.';
         swapError.style.display = 'block';
         return;
       }
-      if (gold > _swapGoldBal) {
-        swapError.textContent  = 'Insufficient GOLD balance.';
+      if (eggs > _swapEggBal) {
+        swapError.textContent   = 'Insufficient egg balance.';
         swapError.style.display = 'block';
         return;
       }
@@ -861,47 +887,41 @@
       swapConfirmBtn.textContent = 'Swapping…';
 
       try {
-        const res  = await fetch('/api/swap/gold-to-sol', {
+        const res  = await fetch('/api/swap/egg-to-gold', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ goldAmount: gold }),
+          body: JSON.stringify({ eggAmount: eggs }),
         });
         const data = await res.json();
 
         if (!res.ok) {
-          swapError.textContent  = data.error || 'Swap failed.';
+          swapError.textContent   = data.error || 'Swap failed.';
           swapError.style.display = 'block';
           swapConfirmBtn.disabled    = false;
           swapConfirmBtn.textContent = 'Swap';
           return;
         }
 
-        // Update UI balances
-        const goldEl = document.getElementById('goldBalance');
-        if (goldEl) goldEl.textContent = data.newGold.toLocaleString();
-        _swapGoldBal = data.newGold;
-        swapGoldAvail.textContent = data.newGold.toLocaleString();
+        // Update egg balance display
+        const eggEl = document.getElementById('eggBalance');
+        if (eggEl) eggEl.textContent = data.newEggs.toLocaleString();
+        _swapEggBal = data.newEggs;
+        swapEggAvail.textContent = data.newEggs.toLocaleString();
 
-        // Refresh live SOL balance
-        if (_walletAddr) {
-          fetch('/api/balance/' + _walletAddr).then(r => r.json()).then(d => {
-            if (typeof d.balance === 'number') {
-              document.getElementById('walletBalance').textContent = d.balance.toFixed(4) + ' SOL';
-              swapSolBal.textContent = d.balance.toFixed(4);
-            }
-          }).catch(() => {});
-        }
+        // Update in-modal gold balance only (stat card shows on-chain GOLD_CA, not in-game gold)
+        _swapCurGold = data.newGold;
+        swapGoldBal.textContent = data.newGold.toLocaleString();
 
         closeSwapModal();
         showAlert(
           `✅ Swap successful!<br><br>` +
-          `Burned: <b>${gold.toLocaleString()} GOLD</b><br>` +
-          `Received: <b>${data.solSent} SOL</b><br><br>` +
-          `<span style="font-size:.75rem;color:rgba(255,255,255,.4);word-break:break-all;">TX: ${data.txSignature}</span>`,
+          `Spent: <b>${eggs.toLocaleString()} Egg${eggs > 1 ? 's' : ''}</b><br>` +
+          `Received: <b>${data.netGold.toLocaleString()} GOLD</b><br>` +
+          `<span style="font-size:.78rem;color:rgba(255,255,255,.45);">Fee deducted: ${data.feeGold.toLocaleString()} GOLD</span>`,
           '⇄ Swap Complete'
         );
       } catch (err) {
-        swapError.textContent  = 'Network error — check connection.';
+        swapError.textContent   = 'Network error — check connection.';
         swapError.style.display = 'block';
         swapConfirmBtn.disabled    = false;
         swapConfirmBtn.textContent = 'Swap';
@@ -1178,6 +1198,7 @@
     // ── Dashboard Energy Widget ───────────────────────────────────────────────
     const DASH_MAX_SEGS = 20;
     let dashRegenInt  = null;
+    let _lastEnergyFetch = 0; // timestamp of last /api/energy call — prevents excessive reads
     // nestTimers: map of nestId → nextTickAt (absolute ISO from server)
     let dashNestTimers = {};
 
@@ -1227,7 +1248,6 @@
       function tick() {
         if (!regenEl) return;
         const now = Date.now();
-        // Find smallest msUntilNext among all active nest timers
         let fastestMs = Infinity;
         for (const nextTickAt of Object.values(dashNestTimers)) {
           const ms = new Date(nextTickAt).getTime() - now;
@@ -1237,7 +1257,11 @@
           regenEl.textContent = '';
           clearInterval(dashRegenInt);
           dashRegenInt = null;
-          loadDashEnergy(); // re-fetch
+          // Debounce: only re-fetch if we haven't fetched in the last 2 minutes
+          const now2 = Date.now();
+          if (!_lastEnergyFetch || (now2 - _lastEnergyFetch) > 2 * 60 * 1000) {
+            loadDashEnergy();
+          }
           return;
         }
         regenEl.textContent = msToHMS(fastestMs);
@@ -1249,6 +1273,7 @@
 
     async function loadDashEnergy() {
       try {
+        _lastEnergyFetch = Date.now();
         const res  = await fetch('/api/energy');
         const data = await res.json();
         if (!data.ok) return;

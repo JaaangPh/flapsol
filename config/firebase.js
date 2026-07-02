@@ -3,6 +3,8 @@ const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getFirestore: _getFirestore }   = require('firebase-admin/firestore');
 
 let db;
+let firestoreCircuitOpenUntil = 0;
+const FIRESTORE_COOLDOWN_MS = 30000;
 
 function getFirestore() {
   if (!db) {
@@ -28,4 +30,41 @@ function getFirestore() {
   return db;
 }
 
-module.exports = { getFirestore };
+function isQuotaError(err) {
+  return !!err && (
+    err.code === 8 ||
+    err.code === 'RESOURCE_EXHAUSTED' ||
+    /RESOURCE_EXHAUSTED|quota exceeded|quota/i.test(err.message || '')
+  );
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runWithFirestoreRetry(operation, fallbackValue = null) {
+  if (Date.now() < firestoreCircuitOpenUntil) {
+    return fallbackValue;
+  }
+
+  let attempts = 0;
+  while (attempts < 3) {
+    try {
+      return await operation();
+    } catch (err) {
+      if (!isQuotaError(err)) throw err;
+
+      attempts += 1;
+      if (attempts >= 3) {
+        firestoreCircuitOpenUntil = Date.now() + FIRESTORE_COOLDOWN_MS;
+        return fallbackValue;
+      }
+
+      await delay(500 * attempts);
+    }
+  }
+
+  return fallbackValue;
+}
+
+module.exports = { getFirestore, runWithFirestoreRetry, isQuotaError };
