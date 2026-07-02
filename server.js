@@ -213,43 +213,6 @@ app.use((_req, res) => res.redirect('/'));
 // Always listen — Vercel overrides this with its own handler via module.exports
 app.listen(PORT, () => {
   console.log(`\n✅  SolClash running → http://localhost:${PORT}\n`);
-  
-  // ── Payout cron jobs (GMT+8 = UTC+8) ─────────────────────────────────────
-  // node-cron runs in the server's local timezone; we pin to UTC explicitly.
-  // Cutoff: 11:40 AM GMT+8  = 03:40 UTC  → cron "40 3 * * *"
-  // Payout: 12:00 PM GMT+8  = 04:00 UTC  → cron "0 4 * * *"
-  const cron = require('node-cron');
-  const { runCutoff, runPayout, getPayoutConfig, getGmt8DateString } = require('./utils/payoutScheduler');
-
-  // Daily cutoff snapshot at 11:40 AM GMT+8
-  cron.schedule('40 3 * * *', async () => {
-    console.log('[cron] Cutoff job triggered (11:40 AM GMT+8)');
-    const todayStr = getGmt8DateString();
-    const config   = await getPayoutConfig();
-    if (config.lastCutoffDate !== todayStr) {
-      await runCutoff();
-    } else {
-      console.log('[cron] Cutoff already ran today, skipping.');
-    }
-  }, { timezone: 'UTC' });
-
-  // Daily payout at 12:00 PM GMT+8
-  cron.schedule('0 4 * * *', async () => {
-    console.log('[cron] Payout job triggered (12:00 PM GMT+8)');
-    const todayStr = getGmt8DateString();
-    const config   = await getPayoutConfig();
-    if (config.lastPayoutDate !== todayStr) {
-      if (config.autoApproval) {
-        await runPayout();
-      } else {
-        console.log('[cron] Auto-approval is OFF — skipping auto-payout.');
-      }
-    } else {
-      console.log('[cron] Payout already ran today, skipping.');
-    }
-  }, { timezone: 'UTC' });
-
-  console.log('⏰  Payout cron jobs scheduled: cutoff 11:40 AM GMT+8 · payout 12:00 PM GMT+8');
 });
 
 module.exports = app;

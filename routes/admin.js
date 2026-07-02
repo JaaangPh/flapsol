@@ -597,4 +597,56 @@ router.post('/api/users/:uid/delete-nest', requireAdmin, async (req, res) => {
   }
 });
 
+// ── POST /admin/cron/cutoff ───────────────────────────────────────────────────
+// Called by cron-job.org at 11:40 AM GMT+8 daily.
+// Secured with CRON_SECRET header: x-cron-secret
+router.post('/cron/cutoff', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers['x-cron-secret'] !== secret) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+  try {
+    const { runCutoff, getPayoutConfig, getGmt8DateString } = require('../utils/payoutScheduler');
+    const todayStr = getGmt8DateString();
+    const config   = await getPayoutConfig();
+    if (config.lastCutoffDate === todayStr) {
+      console.log('[cron/cutoff] Already ran today, skipping.');
+      return res.json({ ok: true, skipped: true, reason: 'Already ran today.' });
+    }
+    const result = await runCutoff();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[cron/cutoff]', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /admin/cron/payout ───────────────────────────────────────────────────
+// Called by cron-job.org at 12:00 PM GMT+8 daily.
+// Secured with CRON_SECRET header: x-cron-secret
+router.post('/cron/payout', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers['x-cron-secret'] !== secret) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+  try {
+    const { runPayout, getPayoutConfig, getGmt8DateString } = require('../utils/payoutScheduler');
+    const todayStr = getGmt8DateString();
+    const config   = await getPayoutConfig();
+    if (config.lastPayoutDate === todayStr) {
+      console.log('[cron/payout] Already ran today, skipping.');
+      return res.json({ ok: true, skipped: true, reason: 'Already ran today.' });
+    }
+    if (!config.autoApproval) {
+      console.log('[cron/payout] Auto-approval is OFF — skipping.');
+      return res.json({ ok: true, skipped: true, reason: 'Auto-approval is OFF.' });
+    }
+    const result = await runPayout();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[cron/payout]', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
